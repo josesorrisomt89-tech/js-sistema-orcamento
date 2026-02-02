@@ -8,9 +8,10 @@ import QuoteList from './components/QuoteList';
 import SettingsView from './components/SettingsView';
 import HistoryView from './components/HistoryView';
 import { Layout, Notebook, Settings, Bell, Search, History, BarChart3, Menu, X, LogOut, Loader2, AlertTriangle, ExternalLink, Play } from 'lucide-react';
+import { Session } from '@supabase/supabase-js';
 
 const App: React.FC = () => {
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,7 +70,7 @@ const App: React.FC = () => {
       ]);
 
       if (quotesRes.data) {
-        const mappedQuotes: Quote[] = quotesRes.data.map(q => ({
+        const mappedQuotes: Quote[] = (quotesRes.data as any[]).map(q => ({
           id: q.id,
           type: q.type as QuoteType,
           supplierName: q.supplier_name,
@@ -85,7 +86,7 @@ const App: React.FC = () => {
       }
 
       if (suppliersRes.data) {
-        setSuppliers(suppliersRes.data);
+        setSuppliers(suppliersRes.data as Supplier[]);
       }
     } catch (e) {
       console.error("Error fetching data:", e);
