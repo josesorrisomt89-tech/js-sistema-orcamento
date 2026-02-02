@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { LogIn, UserPlus, Loader2, Notebook, Mail, AlertCircle, ExternalLink } from 'lucide-react';
@@ -124,7 +123,7 @@ export const Auth: React.FC = () => {
           </p>
           <div className="space-y-2 bg-slate-900/50 p-4 rounded-xl border border-white/5">
             <p className="text-[10px] text-white/70 flex gap-2">
-              <span className="text-indigo-400 font-black">1.</span> Vá em <span className="text-white font-bold">Authentication -> Providers -> Email</span> no Supabase.
+              <span className="text-indigo-400 font-black">1.</span> Vá em <span className="text-white font-bold">Authentication → Providers → Email</span> no Supabase.
             </p>
             <p className="text-[10px] text-white/70 flex gap-2">
               <span className="text-indigo-400 font-black">2.</span> Desative o interruptor <span className="text-white font-bold">"Confirm email"</span> e salve.
