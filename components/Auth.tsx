@@ -17,9 +17,17 @@ export const Auth: React.FC = () => {
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email, password });
+        // Redireciona dinamicamente para a URL atual (Vercel ou Local)
+        // Fix: Replace redirectTo with emailRedirectTo to match Supabase Auth types
+        const { error } = await supabase.auth.signUp({ 
+          email, 
+          password,
+          options: {
+            emailRedirectTo: window.location.origin
+          }
+        });
         if (error) throw error;
-        setMessage({ type: 'success', text: 'Cadastro realizado! Verifique seu e-mail para confirmar.' });
+        setMessage({ type: 'success', text: 'CADASTRO REALIZADO! Verifique seu e-mail para confirmar e clique no link.' });
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -38,53 +46,53 @@ export const Auth: React.FC = () => {
           <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-indigo-500/20">
             <Notebook className="text-white" size={32} />
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tight">QuoteFlow SaaS</h1>
+          <h1 className="text-3xl font-black text-white tracking-tight italic">QuoteFlow SaaS</h1>
           <p className="text-slate-400 font-medium mt-2">Gestão profissional de orçamentos Volus</p>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-700/10">
           <div className="flex border-b border-slate-100">
             <button 
               onClick={() => setIsSignUp(false)}
-              className={`flex-1 py-4 text-xs font-black uppercase tracking-widest transition-all ${!isSignUp ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`flex-1 py-5 text-xs font-black uppercase tracking-[0.2em] transition-all ${!isSignUp ? 'text-indigo-600 bg-slate-50 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600 bg-white'}`}
             >
               Entrar
             </button>
             <button 
               onClick={() => setIsSignUp(true)}
-              className={`flex-1 py-4 text-xs font-black uppercase tracking-widest transition-all ${isSignUp ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`flex-1 py-5 text-xs font-black uppercase tracking-[0.2em] transition-all ${isSignUp ? 'text-indigo-600 bg-slate-50 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600 bg-white'}`}
             >
               Cadastrar
             </button>
           </div>
 
-          <form onSubmit={handleAuth} className="p-8 space-y-5">
+          <form onSubmit={handleAuth} className="p-8 space-y-6">
             {message && (
-              <div className={`p-4 rounded-xl text-xs font-bold uppercase tracking-wider ${message.type === 'error' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
+              <div className={`p-4 rounded-xl text-[10px] font-black uppercase tracking-widest leading-relaxed text-center ${message.type === 'error' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
                 {message.text}
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">E-mail Corporativo</label>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">E-MAIL CORPORATIVO</label>
               <input 
                 type="email" 
                 required 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
+                className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none font-bold text-slate-700 transition-all placeholder:text-slate-300"
                 placeholder="exemplo@empresa.com"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Senha de Acesso</label>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">SENHA DE ACESSO</label>
               <input 
                 type="password" 
                 required 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
+                className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none font-bold text-slate-700 transition-all placeholder:text-slate-300"
                 placeholder="••••••••"
               />
             </div>
@@ -92,16 +100,16 @@ export const Auth: React.FC = () => {
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 uppercase text-xs tracking-widest"
+              className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl shadow-xl shadow-slate-900/10 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-[0.2em]"
             >
-              {loading ? <Loader2 className="animate-spin" size={18} /> : (isSignUp ? <UserPlus size={18} /> : <LogIn size={18} />)}
-              {isSignUp ? 'Criar Conta Grátis' : 'Acessar Painel'}
+              {loading ? <Loader2 className="animate-spin" size={20} /> : (isSignUp ? <UserPlus size={20} /> : <LogIn size={20} />)}
+              {isSignUp ? 'Criar Conta Agora' : 'Acessar Painel'}
             </button>
           </form>
         </div>
         
-        <p className="text-center text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-8">
-          &copy; 2025 QuoteFlow System • All Rights Reserved
+        <p className="text-center text-slate-600 text-[10px] font-bold uppercase tracking-[0.3em] mt-10 opacity-50">
+          © 2025 QuoteFlow System • Security Verified
         </p>
       </div>
     </div>
