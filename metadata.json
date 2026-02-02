@@ -1,0 +1,8 @@
+
+{
+  "name": "QuoteFlow Cloud SaaS",
+  "description": "Sistema empresarial para gestão de orçamentos Volus com sincronização na nuvem e IA Gemini.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
