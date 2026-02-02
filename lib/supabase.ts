@@ -1,5 +1,5 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.48.0';
+import { createClient } from '@supabase/supabase-js';
 
 // No ambiente local, usamos placeholders. No Vercel, o process.env será injetado.
 const supabaseUrl = process.env.SUPABASE_URL || '';
