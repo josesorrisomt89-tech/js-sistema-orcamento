@@ -131,8 +131,9 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
         quoteNumberServices: singleSupplier.quoteNumberServices
       }
     ];
+    
     if (itemsToProcess.some(i => !i.supplierName || !i.supplierPhone) || !observations || !photo) {
-      alert("Preencha fornecedor, telefone, observações e anexe uma foto.");
+      alert("⚠️ Preencha fornecedor, telefone, observações e anexe uma foto antes de enviar.");
       return;
     }
 
@@ -173,46 +174,49 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
       setObservations('');
     } catch (error) {
       console.error(error);
+      alert("Houve um erro ao processar com IA. Tente novamente.");
     } finally {
       setIsProcessing(false);
     }
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 p-8">
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-3">
-            <label className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Tipo de Ação</label>
-            <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-              <button type="button" onClick={() => setType(QuoteType.REQUEST)} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${type === QuoteType.REQUEST ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Pedido</button>
-              <button type="button" onClick={() => setType(QuoteType.APPROVAL)} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${type === QuoteType.APPROVAL ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Aprovação</button>
+    <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 p-4 md:p-8">
+      <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8">
+        {/* Toggle Modo */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Tipo de Ação</label>
+            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button type="button" onClick={() => setType(QuoteType.REQUEST)} className={`flex-1 py-2.5 text-xs font-black rounded-lg transition-all ${type === QuoteType.REQUEST ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>PEDIDO</button>
+              <button type="button" onClick={() => setType(QuoteType.APPROVAL)} className={`flex-1 py-2.5 text-xs font-black rounded-lg transition-all ${type === QuoteType.APPROVAL ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>APROVAÇÃO</button>
             </div>
           </div>
-          <div className="space-y-3">
-            <label className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Modo de Trabalho</label>
-            <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-              <button type="button" onClick={() => setIsMultiMode(false)} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${!isMultiMode ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><User size={16} /> Único</button>
-              <button type="button" onClick={() => setIsMultiMode(true)} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${isMultiMode ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><Users size={16} /> Em Lote</button>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Modo de Trabalho</label>
+            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button type="button" onClick={() => setIsMultiMode(false)} className={`flex-1 py-2.5 text-xs font-black rounded-lg transition-all flex items-center justify-center gap-2 ${!isMultiMode ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><User size={14} /> ÚNICO</button>
+              <button type="button" onClick={() => setIsMultiMode(true)} className={`flex-1 py-2.5 text-xs font-black rounded-lg transition-all flex items-center justify-center gap-2 ${isMultiMode ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><Users size={14} /> LOTE</button>
             </div>
           </div>
         </div>
 
-        <div className="space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+        {/* Dados Fornecedor */}
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
               {isMultiMode ? <Users size={14}/> : <User size={14}/>} 
               DADOS DO FORNECEDOR
             </h3>
             {suppliers.length > 0 && (
-              <div className="flex items-center gap-3 animate-in fade-in slide-in-from-right-2">
-                <span className="text-[10px] font-black text-indigo-500 uppercase flex items-center gap-1"><UserCheck size={12}/> Usar Salvo:</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">Contatos:</span>
                 <select 
                   onChange={!isMultiMode ? handleSelectSupplierSingle : undefined}
-                  className="text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-indigo-500"
+                  className="text-[11px] font-bold text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-500 w-full md:w-auto"
                   defaultValue=""
                 >
-                  <option value="" disabled>Escolher contato...</option>
+                  <option value="" disabled>Selecionar...</option>
                   {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
@@ -220,61 +224,72 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
           </div>
           
           {!isMultiMode ? (
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <input type="text" placeholder="Nome" value={singleSupplier.name} onChange={e => setSingleSupplier({...singleSupplier, name: e.target.value})} className="px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-medium" />
-              <input type="tel" placeholder="WhatsApp" value={singleSupplier.phone} onChange={e => setSingleSupplier({...singleSupplier, phone: e.target.value})} className="px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-medium" />
-              <input type="text" placeholder="Prefixo (Ex: V-145)" value={singleSupplier.prefix} onChange={e => setSingleSupplier({...singleSupplier, prefix: e.target.value})} className="px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-medium" />
-              <input type="text" placeholder="ORC. Peças" value={singleSupplier.quoteNumberParts} onChange={e => setSingleSupplier({...singleSupplier, quoteNumberParts: e.target.value})} className="px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-medium" />
-              <input type="text" placeholder="ORC. Serviços" value={singleSupplier.quoteNumberServices} onChange={e => setSingleSupplier({...singleSupplier, quoteNumberServices: e.target.value})} className="px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-medium" />
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+              <input type="text" placeholder="Nome Empresa" value={singleSupplier.name} onChange={e => setSingleSupplier({...singleSupplier, name: e.target.value})} className="px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700 text-sm" />
+              <input type="tel" placeholder="Whats (669999...)" value={singleSupplier.phone} onChange={e => setSingleSupplier({...singleSupplier, phone: e.target.value})} className="px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700 text-sm" />
+              <input type="text" placeholder="Prefixo" value={singleSupplier.prefix} onChange={e => setSingleSupplier({...singleSupplier, prefix: e.target.value})} className="px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700 text-sm" />
+              <input type="text" placeholder="Nº Peças" value={singleSupplier.quoteNumberParts} onChange={e => setSingleSupplier({...singleSupplier, quoteNumberParts: e.target.value})} className="px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700 text-sm" />
+              <input type="text" placeholder="Nº Serviços" value={singleSupplier.quoteNumberServices} onChange={e => setSingleSupplier({...singleSupplier, quoteNumberServices: e.target.value})} className="px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700 text-sm" />
             </div>
           ) : (
             <div className="space-y-4">
               {batchItems.map((item) => (
-                <div key={item.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-slate-50 p-4 rounded-2xl border border-slate-200 group">
-                  <div className="md:col-span-2 relative">
-                    <input type="text" placeholder="Nome" value={item.supplierName} onChange={e => updateBatchItem(item.id, 'supplierName', e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none" />
-                    {suppliers.length > 0 && (
-                      <select onChange={e => handleSelectSupplierBatch(item.id, e)} className="absolute right-1 top-1/2 -translate-y-1/2 text-[8px] font-bold bg-white/80 border border-slate-200 rounded p-1 outline-none max-w-[60px]" defaultValue=""><option value="" disabled>Salvos</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
-                    )}
+                <div key={item.id} className="flex flex-col md:grid md:grid-cols-12 gap-3 items-center bg-slate-50 p-4 rounded-2xl border border-slate-200 relative group">
+                  <div className="w-full md:col-span-2 relative">
+                    <input type="text" placeholder="Nome" value={item.supplierName} onChange={e => updateBatchItem(item.id, 'supplierName', e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 font-bold focus:ring-2 focus:ring-indigo-500 outline-none" />
                   </div>
-                  <div className="md:col-span-2"><input type="tel" placeholder="Whats" value={item.supplierPhone} onChange={e => updateBatchItem(item.id, 'supplierPhone', e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none" /></div>
-                  <div className="md:col-span-2"><input type="text" placeholder="Prefixo" value={item.prefix} onChange={e => updateBatchItem(item.id, 'prefix', e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none" /></div>
-                  <div className="md:col-span-2"><input type="text" placeholder="Peças" value={item.quoteNumberParts} onChange={e => updateBatchItem(item.id, 'quoteNumberParts', e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none" /></div>
-                  <div className="md:col-span-3"><input type="text" placeholder="Serviços" value={item.quoteNumberServices} onChange={e => updateBatchItem(item.id, 'quoteNumberServices', e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none" /></div>
-                  <div className="md:col-span-1 flex justify-center"><button type="button" disabled={batchItems.length === 1} onClick={() => removeBatchItem(item.id)} className="p-2 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"><Trash2 size={18} /></button></div>
+                  <div className="w-full md:col-span-2"><input type="tel" placeholder="Whats" value={item.supplierPhone} onChange={e => updateBatchItem(item.id, 'supplierPhone', e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 font-bold focus:ring-2 focus:ring-indigo-500 outline-none" /></div>
+                  <div className="w-full md:col-span-2"><input type="text" placeholder="Prefixo" value={item.prefix} onChange={e => updateBatchItem(item.id, 'prefix', e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 font-bold focus:ring-2 focus:ring-indigo-500 outline-none" /></div>
+                  <div className="w-full md:col-span-2"><input type="text" placeholder="Peças" value={item.quoteNumberParts} onChange={e => updateBatchItem(item.id, 'quoteNumberParts', e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 font-bold focus:ring-2 focus:ring-indigo-500 outline-none" /></div>
+                  <div className="w-full md:col-span-3"><input type="text" placeholder="Serviços" value={item.quoteNumberServices} onChange={e => updateBatchItem(item.id, 'quoteNumberServices', e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 font-bold focus:ring-2 focus:ring-indigo-500 outline-none" /></div>
+                  <div className="absolute top-2 right-2 md:static md:col-span-1 flex justify-center">
+                    <button type="button" disabled={batchItems.length === 1} onClick={() => removeBatchItem(item.id)} className="p-2 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"><Trash2 size={18} /></button>
+                  </div>
                 </div>
               ))}
-              <button type="button" onClick={addBatchItem} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 hover:text-indigo-600 hover:border-indigo-300 transition-all flex items-center justify-center gap-2 text-sm font-black uppercase tracking-widest"><Plus size={20} /> Adicionar Fornecedor ao Lote</button>
+              <button type="button" onClick={addBatchItem} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 hover:text-indigo-600 hover:border-indigo-300 transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest"><Plus size={16} /> ADICIONAR AO LOTE</button>
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-          <div className="md:col-span-4">
-            <label className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] block mb-3">Anexar Documento / Peças</label>
-            <div className="relative aspect-square">
+        {/* Fotos e Observações */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8">
+          <div className="md:col-span-4 space-y-3">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block">Anexar Documento / Peças</label>
+            <div className="relative aspect-video md:aspect-square">
               {photo ? (
-                <div className="relative w-full h-full rounded-2xl overflow-hidden border border-slate-200 group shadow-md"><img src={photo} alt="Doc" className="w-full h-full object-cover" /><button type="button" onClick={() => setPhoto(null)} className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all backdrop-blur-sm text-white gap-2 font-bold"><Trash2 size={40} />Remover Foto</button></div>
+                <div className="relative w-full h-full rounded-2xl overflow-hidden border border-slate-200 group shadow-md">
+                  <img src={photo} alt="Doc" className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => setPhoto(null)} className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all backdrop-blur-sm text-white gap-2 font-black uppercase text-xs tracking-widest">
+                    <Trash2 size={32} />
+                    Remover Foto
+                  </button>
+                </div>
               ) : (
-                <div className="w-full h-full rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-6 bg-slate-50 transition-colors hover:bg-indigo-50/30 group">
-                  <div className="flex flex-col items-center gap-3">
-                    <button type="button" onClick={() => setIsCameraOpen(true)} className="flex flex-col items-center gap-2 text-slate-400 hover:text-indigo-600 transition-all group p-4"><div className="p-5 bg-white rounded-full shadow-lg border border-slate-100 group-hover:scale-110 transition-transform"><Camera size={32} /></div><span className="text-[10px] font-black uppercase tracking-widest">Câmera</span></button>
-                    <div className="w-16 h-[1px] bg-slate-200"></div>
-                    <button type="button" onClick={triggerFilePicker} className="flex flex-col items-center gap-2 text-slate-400 hover:text-indigo-600 transition-all group p-4"><div className="p-5 bg-white rounded-full shadow-lg border border-slate-100 group-hover:scale-110 transition-transform"><ImageIcon size={32} /></div><span className="text-[10px] font-black uppercase tracking-widest">Galeria</span></button>
-                  </div>
+                <div className="w-full h-full rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center gap-4 bg-slate-50 transition-colors hover:bg-indigo-50/30">
+                    <button type="button" onClick={() => setIsCameraOpen(true)} className="flex flex-col items-center gap-2 text-slate-400 hover:text-indigo-600 transition-all p-4">
+                      <div className="p-4 bg-white rounded-full shadow-lg border border-slate-100"><Camera size={24} /></div>
+                      <span className="text-[9px] font-black uppercase tracking-widest">CÂMERA</span>
+                    </button>
+                    <div className="w-[1px] h-12 bg-slate-200"></div>
+                    <button type="button" onClick={triggerFilePicker} className="flex flex-col items-center gap-2 text-slate-400 hover:text-indigo-600 transition-all p-4">
+                      <div className="p-4 bg-white rounded-full shadow-lg border border-slate-100"><ImageIcon size={24} /></div>
+                      <span className="text-[9px] font-black uppercase tracking-widest">GALERIA</span>
+                    </button>
                 </div>
               )}
               <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
             </div>
           </div>
-          <div className="md:col-span-8 flex flex-col">
-            <label className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] block mb-3">Observações Adicionais</label>
-            <textarea required rows={10} placeholder="Liste as peças, defeitos ou detalhes técnicos aqui..." value={observations} onChange={e => setObservations(e.target.value)} className="flex-1 w-full px-6 py-5 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none shadow-inner font-black uppercase text-sm leading-relaxed" />
+          <div className="md:col-span-8 flex flex-col space-y-3">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block">Observações Adicionais</label>
+            <textarea required rows={8} placeholder="Liste as peças, defeitos ou detalhes técnicos..." value={observations} onChange={e => setObservations(e.target.value)} className="flex-1 w-full px-5 py-4 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none shadow-inner font-black uppercase text-xs leading-relaxed text-slate-700" />
           </div>
         </div>
 
-        <button type="submit" disabled={isProcessing} className="w-full bg-slate-900 hover:bg-black disabled:bg-slate-300 text-white font-black py-6 px-8 rounded-2xl shadow-2xl flex items-center justify-center gap-4 transition-all active:scale-[0.98] text-xl uppercase tracking-widest">
-          {isProcessing ? <><Loader2 className="animate-spin" size={28} /><span>Processando IA...</span></> : <><Send size={28} /><span>Gerar e Enviar Agora</span></>}
+        {/* Botão de Envio */}
+        <button type="submit" disabled={isProcessing} className="w-full bg-slate-900 hover:bg-black disabled:bg-slate-300 text-white font-black py-5 px-6 rounded-2xl shadow-2xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] text-lg md:text-xl uppercase tracking-widest">
+          {isProcessing ? <><Loader2 className="animate-spin" size={24} /><span>PROCESSANDO...</span></> : <><Send size={24} /><span>GERAR E ENVIAR WHATS</span></>}
         </button>
       </form>
       {isCameraOpen && <CameraModal onCapture={img => setPhoto(img)} onClose={() => setIsCameraOpen(false)} />}
