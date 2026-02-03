@@ -12,18 +12,20 @@ import {
   Settings,
   ListPlus,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  Edit2
 } from 'lucide-react';
 
 interface ReportsViewProps {
   records: ReportRecord[];
   listItems: ReportListItem[];
   onSaveRecord: (record: Omit<ReportRecord, 'id' | 'createdAt'>) => void;
+  onUpdateRecord: (id: string, record: Omit<ReportRecord, 'id' | 'createdAt'>) => void;
   onDeleteRecord: (id: string) => void;
   onUpdateListItems: (items: ReportListItem[]) => Promise<any>;
 }
 
-const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRecord, onDeleteRecord, onUpdateListItems }) => {
+const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRecord, onUpdateRecord, onDeleteRecord, onUpdateListItems }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,6 +33,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRec
   const [activeConfigCategory, setActiveConfigCategory] = useState<'secretaria' | 'fornecedor' | 'status' | 'entrega'>('secretaria');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   
   // Estado local para as listas dentro do modal para edição fluida
   const [localListItems, setLocalListItems] = useState<ReportListItem[]>([]);
@@ -63,10 +66,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRec
     observacao: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSaveRecord(formData);
-    setIsModalOpen(false);
+  const resetForm = () => {
     setFormData({
       dataRecebido: new Date().toISOString().split('T')[0],
       prefixo: '',
@@ -87,6 +87,48 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRec
       entregueRelatorio: '',
       observacao: ''
     });
+    setEditingRecordId(null);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingRecordId) {
+      onUpdateRecord(editingRecordId, formData);
+    } else {
+      onSaveRecord(formData);
+    }
+    setIsModalOpen(false);
+    resetForm();
+  };
+
+  const handleEditClick = (record: ReportRecord) => {
+    setEditingRecordId(record.id);
+    setFormData({
+      dataRecebido: record.dataRecebido || '',
+      prefixo: record.prefixo || '',
+      secretaria: record.secretaria || '',
+      descricao: record.descricao || '',
+      numPedidoOficina: record.numPedidoOficina || '',
+      oficinaTipo: record.oficinaTipo || 'TERCERIZADA',
+      dataLancamentoVolus: record.dataLancamentoVolus || '',
+      numOrcVolusPecas: record.numOrcVolusPecas || '',
+      numOrcVolusServ: record.numOrcVolusServ || '',
+      dataAprovacaoVolus: record.dataAprovacaoVolus || '',
+      numOrcAprovado: record.numOrcAprovado || '',
+      valorTotal: record.valorTotal || '',
+      notaFiscal: record.notaFiscal || '',
+      fornecedor: record.fornecedor || '',
+      responsavel: record.responsavel || '',
+      status: record.status || '',
+      entregueRelatorio: record.entregueRelatorio || '',
+      observacao: record.observacao || ''
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleNewRecordClick = () => {
+    resetForm();
+    setIsModalOpen(true);
   };
 
   const filteredRecords = useMemo(() => {
@@ -175,7 +217,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRec
             <Download size={16} /> Exportar CSV
           </button>
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleNewRecordClick}
             className="px-6 py-4 bg-indigo-500 hover:bg-indigo-400 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-xl shadow-indigo-500/20"
           >
             <Plus size={18} /> Novo Lançamento
@@ -231,7 +273,10 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRec
               {filteredRecords.map((r) => (
                 <tr key={r.id} className="hover:bg-slate-50 transition-colors group">
                   <td className="px-4 py-4 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-100 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
-                    <button onClick={() => onDeleteRecord(r.id)} className="text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={16} /></button>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => handleEditClick(r)} className="text-slate-300 hover:text-indigo-500 transition-colors" title="Editar"><Edit2 size={16} /></button>
+                      <button onClick={() => onDeleteRecord(r.id)} className="text-slate-300 hover:text-rose-500 transition-colors" title="Excluir"><Trash2 size={16} /></button>
+                    </div>
                   </td>
                   <td className="px-4 py-4 text-[11px] font-bold text-slate-500 border-r border-slate-100">{r.dataRecebido}</td>
                   <td className="px-4 py-4 text-[11px] font-black text-indigo-600 border-r border-slate-100 uppercase">{r.prefixo}</td>
@@ -266,13 +311,15 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRec
         </div>
       </div>
 
-      {/* Modal Lançamento */}
+      {/* Modal Lançamento / Edição */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-5xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div>
-                <h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic">Novo Lançamento</h3>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic">
+                  {editingRecordId ? 'Editar Lançamento' : 'Novo Lançamento'}
+                </h3>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="p-4 hover:bg-slate-200 rounded-2xl transition-all"><X size={28} /></button>
             </div>
@@ -316,7 +363,9 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRec
                 <Field label="Status" type="select" options={getOptionsByCategory('status')} value={formData.status} onChange={v => setFormData({...formData, status: v})} />
                 <Field label="Entregue" type="select" options={getOptionsByCategory('entrega')} value={formData.entregueRelatorio} onChange={v => setFormData({...formData, entregueRelatorio: v})} />
               </div>
-              <button type="submit" className="w-full bg-slate-900 text-white font-black py-6 rounded-[2rem] uppercase text-xs tracking-widest shadow-2xl hover:bg-black transition-all">Salvar Registro</button>
+              <button type="submit" className="w-full bg-slate-900 text-white font-black py-6 rounded-[2rem] uppercase text-xs tracking-widest shadow-2xl hover:bg-black transition-all">
+                {editingRecordId ? 'Salvar Alterações' : 'Salvar Novo Registro'}
+              </button>
             </form>
           </div>
         </div>
