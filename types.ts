@@ -25,6 +25,29 @@ export interface Quote {
   sent?: boolean;
 }
 
+export interface ReportRecord {
+  id: string;
+  dataRecebido: string;
+  prefixo: string;
+  secretaria: string;
+  descricao: string;
+  numPedidoOficina: string;
+  oficinaTipo: 'PROPRIA' | 'TERCERIZADA';
+  dataLancamentoVolus: string;
+  numOrcVolusPecas: string;
+  numOrcVolusServ: string;
+  dataAprovacaoVolus: string;
+  numOrcAprovado: string;
+  valorTotal: string;
+  notaFiscal: string;
+  fornecedor: string;
+  responsavel: string;
+  status: string;
+  entregueRelatorio: string;
+  observacao: string;
+  createdAt: number;
+}
+
 export interface BatchItem {
   id: string;
   supplierName: string;
