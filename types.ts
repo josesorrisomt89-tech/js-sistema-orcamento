@@ -48,6 +48,12 @@ export interface ReportRecord {
   createdAt: number;
 }
 
+export interface ReportListItem {
+  id: string;
+  category: 'secretaria' | 'fornecedor' | 'status' | 'entrega';
+  value: string;
+}
+
 export interface BatchItem {
   id: string;
   supplierName: string;
