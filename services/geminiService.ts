@@ -2,8 +2,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { QuoteType } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export async function formatQuoteMessage(
   type: QuoteType, 
   observations: string, 
@@ -13,6 +11,8 @@ export async function formatQuoteMessage(
   servicesNumber?: string
 ): Promise<string> {
   try {
+    // Fix: Create a new GoogleGenAI instance right before making an API call to ensure use of up-to-date environment variables
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const isApproval = type === QuoteType.APPROVAL;
     const typeLabel = isApproval ? 'APROVADO' : 'SOLICITADO';
 
