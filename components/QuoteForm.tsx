@@ -15,6 +15,9 @@ const DRAFT_KEY = 'quoteflow_draft_v2';
 const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
   const [type, setType] = useState<QuoteType>(QuoteType.REQUEST);
   const [isMultiMode, setIsMultiMode] = useState(false);
+  const [isSupplierSearchOpen, setIsSupplierSearchOpen] = useState(false);
+  const [supplierSearchQuery, setSupplierSearchQuery] = useState('');
+  const [activeBatchIdForSearch, setActiveBatchIdForSearch] = useState<string | null>(null);
   
   const [singleSupplier, setSingleSupplier] = useState({ 
     name: '', phone: '', prefix: '', quoteNumberParts: '', quoteNumberServices: '' 
@@ -71,11 +74,15 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
   };
 
   const handleSelectSupplierFromList = (supplier: Supplier, batchId?: string) => {
-    if (isMultiMode && batchId) {
+    if (batchId) {
       setBatchItems(batchItems.map(item => item.id === batchId ? { ...item, supplierName: supplier.name, supplierPhone: supplier.phone } : item));
+    } else if (isMultiMode && activeBatchIdForSearch) {
+      setBatchItems(batchItems.map(item => item.id === activeBatchIdForSearch ? { ...item, supplierName: supplier.name, supplierPhone: supplier.phone } : item));
     } else {
       setSingleSupplier(prev => ({ ...prev, name: supplier.name, phone: supplier.phone }));
     }
+    setIsSupplierSearchOpen(false);
+    setActiveBatchIdForSearch(null);
   };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,23 +150,22 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
         });
       }
       
-      // SALVA TUDO NO HISTÓRICO
+      // SALVA NO HISTÓRICO - Garante que o App receba os dados
       onSave(generatedQuotes);
       
-      // Abre o WhatsApp apenas para o primeiro item (o navegador bloqueia múltiplos popups)
+      // WhatsApp Send Logic
       if (generatedQuotes.length > 0) {
+        if (isMultiMode && itemsToProcess.length > 1) {
+          alert(`✅ ${itemsToProcess.length} Orçamentos salvos no histórico!\n\nO navegador permite abrir apenas uma janela por vez. O primeiro WhatsApp será aberto agora, envie os outros através da aba "Histórico".`);
+        }
+        
         const q = generatedQuotes[0];
         const cleanPhone = q.supplierPhone.replace(/\D/g, '');
         const encodedText = encodeURIComponent(q.observations);
-        
-        if (isMultiMode && itemsToProcess.length > 1) {
-          alert(`✅ ${itemsToProcess.length} Orçamentos salvos no histórico!\n\nO WhatsApp abrirá agora para o primeiro. Envie-o e depois use o Histórico para enviar os outros um a um.`);
-        }
-
         window.open(`https://wa.me/55${cleanPhone}?text=${encodedText}`, '_blank');
       }
 
-      // Reset
+      // Reset total
       setSingleSupplier({ name: '', phone: '', prefix: '', quoteNumberParts: '', quoteNumberServices: '' });
       setBatchItems([{ id: crypto.randomUUID(), supplierName: '', supplierPhone: '', prefix: '', quoteNumberParts: '', quoteNumberServices: '' }]);
       setPhoto(null);
@@ -168,11 +174,15 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
       localStorage.removeItem(DRAFT_KEY);
     } catch (error) {
       console.error(error);
-      alert("Houve um erro ao processar.");
+      alert("Houve um erro ao processar. Tente novamente.");
     } finally {
       setIsProcessing(false);
     }
   };
+
+  const filteredSuppliers = suppliers.filter(s => 
+    s.name.toLowerCase().includes(supplierSearchQuery.toLowerCase())
+  );
 
   return (
     <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 p-4 md:p-8">
@@ -203,37 +213,34 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
 
         {/* Fornecedores */}
         <div className="space-y-6">
-          <div className="border-b border-slate-100 pb-3">
-             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">FORNECEDORES CADASTRADOS</h3>
-             <div className="mt-3 flex flex-wrap gap-2">
-                {suppliers.slice(0, 10).map(s => (
-                  <button 
-                    key={s.id} 
-                    type="button"
-                    onClick={() => handleSelectSupplierFromList(s)}
-                    className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all"
-                  >
-                    {s.name}
-                  </button>
-                ))}
-                {suppliers.length > 10 && <span className="text-[9px] font-bold text-slate-400 self-center">+ {suppliers.length - 10} cadastrados</span>}
-             </div>
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">SELECIONAR EMPRESA</h3>
+             <button 
+               type="button" 
+               onClick={() => setIsSupplierSearchOpen(true)}
+               className="flex items-center gap-2 text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-3 py-2 rounded-lg hover:bg-indigo-100 transition-all"
+             >
+               <Search size={14} /> BUSCAR CADASTRADAS
+             </button>
           </div>
 
           {!isMultiMode ? (
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
               <input type="text" placeholder="Nome Empresa" value={singleSupplier.name} onChange={e => setSingleSupplier({...singleSupplier, name: e.target.value})} className="px-4 py-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700 text-sm" />
-              <input type="tel" placeholder="WhatsApp" value={singleSupplier.phone} onChange={e => setSingleSupplier({...singleSupplier, phone: e.target.value})} className="px-4 py-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700 text-sm" />
+              <input type="tel" placeholder="WhatsApp (DDD)" value={singleSupplier.phone} onChange={e => setSingleSupplier({...singleSupplier, phone: e.target.value})} className="px-4 py-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700 text-sm" />
               <input type="text" placeholder="Prefixo" value={singleSupplier.prefix} onChange={e => setSingleSupplier({...singleSupplier, prefix: e.target.value})} className="px-4 py-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700 text-sm" />
-              <input type="text" placeholder="Nº Peças" value={singleSupplier.quoteNumberParts} onChange={e => setSingleSupplier({...singleSupplier, quoteNumberParts: e.target.value})} className="px-4 py-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700 text-sm" />
-              <input type="text" placeholder="Nº Serviços" value={singleSupplier.quoteNumberServices} onChange={e => setSingleSupplier({...singleSupplier, quoteNumberServices: e.target.value})} className="px-4 py-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700 text-sm" />
+              <input type="text" placeholder="Nº Peças Volus" value={singleSupplier.quoteNumberParts} onChange={e => setSingleSupplier({...singleSupplier, quoteNumberParts: e.target.value})} className="px-4 py-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700 text-sm" />
+              <input type="text" placeholder="Nº Serviços Volus" value={singleSupplier.quoteNumberServices} onChange={e => setSingleSupplier({...singleSupplier, quoteNumberServices: e.target.value})} className="px-4 py-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700 text-sm" />
             </div>
           ) : (
             <div className="space-y-4">
               {batchItems.map((item) => (
                 <div key={item.id} className="flex flex-col gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 relative group">
                   <div className="flex flex-col md:flex-row gap-3">
-                    <input type="text" placeholder="Nome Empresa" value={item.supplierName} onChange={e => updateBatchItem(item.id, 'supplierName', e.target.value)} className="flex-1 px-4 py-3 text-sm rounded-xl border border-slate-300 font-bold focus:ring-2 focus:ring-indigo-500 outline-none" />
+                    <div className="flex-1 relative">
+                       <input type="text" placeholder="Nome Empresa" value={item.supplierName} onChange={e => updateBatchItem(item.id, 'supplierName', e.target.value)} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-300 font-bold focus:ring-2 focus:ring-indigo-500 outline-none" />
+                       <button type="button" onClick={() => { setActiveBatchIdForSearch(item.id); setIsSupplierSearchOpen(true); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-400 hover:text-indigo-600"><Search size={18} /></button>
+                    </div>
                     <input type="tel" placeholder="WhatsApp" value={item.supplierPhone} onChange={e => updateBatchItem(item.id, 'supplierPhone', e.target.value)} className="w-full md:w-48 px-4 py-3 text-sm rounded-xl border border-slate-300 font-bold focus:ring-2 focus:ring-indigo-500 outline-none" />
                   </div>
                   <div className="grid grid-cols-3 gap-2">
@@ -314,6 +321,51 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
           {isProcessing ? <><Loader2 className="animate-spin" size={24} /><span>GERANDO...</span></> : <><Send size={24} /><span>PROCESSAR E ENVIAR</span></>}
         </button>
       </form>
+
+      {/* MODAL DE BUSCA DE FORNECEDORES */}
+      {isSupplierSearchOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+           <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                 <h3 className="text-lg font-black uppercase tracking-widest text-slate-900">Selecionar Empresa</h3>
+                 <button onClick={() => setIsSupplierSearchOpen(false)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20}/></button>
+              </div>
+              <div className="p-6 bg-slate-50 border-b border-slate-100">
+                 <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input 
+                      autoFocus
+                      type="text" 
+                      placeholder="Pesquisar por nome..." 
+                      className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold"
+                      value={supplierSearchQuery}
+                      onChange={e => setSupplierSearchQuery(e.target.value)}
+                    />
+                 </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                 {filteredSuppliers.length > 0 ? filteredSuppliers.map(s => (
+                   <button 
+                     key={s.id} 
+                     onClick={() => handleSelectSupplierFromList(s)}
+                     className="w-full flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left group"
+                   >
+                      <div>
+                        <p className="font-black text-slate-900 uppercase text-xs">{s.name}</p>
+                        <p className="text-[10px] text-slate-400 font-bold">{s.phone}</p>
+                      </div>
+                      <CheckCircle className="text-indigo-500 opacity-0 group-hover:opacity-100" size={18} />
+                   </button>
+                 )) : (
+                   <div className="py-10 text-center">
+                     <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Nenhuma empresa encontrada</p>
+                   </div>
+                 )}
+              </div>
+           </div>
+        </div>
+      )}
+
       {isCameraOpen && <CameraModal onCapture={img => { setPhoto(img); setIsCameraOpen(false); }} onClose={() => setIsCameraOpen(false)} />}
     </div>
   );
