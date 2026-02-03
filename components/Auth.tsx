@@ -8,7 +8,7 @@ interface AuthProps {
   branding: SystemSettings;
 }
 
-export const Auth: React.FC<AuthProps> = ({ branding }) => {
+export function Auth({ branding }: AuthProps) {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -143,4 +143,4 @@ export const Auth: React.FC<AuthProps> = ({ branding }) => {
       </div>
     </div>
   );
-};
+}
