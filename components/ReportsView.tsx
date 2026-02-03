@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ReportRecord, ReportListItem } from '../types';
 import { 
   FileSpreadsheet, 
@@ -10,7 +10,9 @@ import {
   Save, 
   Trash2,
   Settings,
-  ListPlus
+  ListPlus,
+  Loader2,
+  CheckCircle2
 } from 'lucide-react';
 
 interface ReportsViewProps {
@@ -18,7 +20,7 @@ interface ReportsViewProps {
   listItems: ReportListItem[];
   onSaveRecord: (record: Omit<ReportRecord, 'id' | 'createdAt'>) => void;
   onDeleteRecord: (id: string) => void;
-  onUpdateListItems: (items: ReportListItem[]) => void;
+  onUpdateListItems: (items: ReportListItem[]) => Promise<any>;
 }
 
 const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRecord, onDeleteRecord, onUpdateListItems }) => {
@@ -27,7 +29,19 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRec
   const [searchTerm, setSearchTerm] = useState('');
   const [newItemValue, setNewItemValue] = useState('');
   const [activeConfigCategory, setActiveConfigCategory] = useState<'secretaria' | 'fornecedor' | 'status' | 'entrega'>('secretaria');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   
+  // Estado local para as listas dentro do modal para edição fluida
+  const [localListItems, setLocalListItems] = useState<ReportListItem[]>([]);
+
+  useEffect(() => {
+    if (isConfigModalOpen) {
+      setLocalListItems(listItems);
+      setSaveSuccess(false);
+    }
+  }, [isConfigModalOpen, listItems]);
+
   const [formData, setFormData] = useState({
     dataRecebido: new Date().toISOString().split('T')[0],
     prefixo: '',
@@ -77,10 +91,10 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRec
 
   const filteredRecords = useMemo(() => {
     return records.filter(r => 
-      r.fornecedor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.prefixo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.secretaria.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.numOrcAprovado.toLowerCase().includes(searchTerm.toLowerCase())
+      (r.fornecedor?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (r.prefixo?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (r.secretaria?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (r.numOrcAprovado?.toLowerCase() || '').includes(searchTerm.toLowerCase())
     ).sort((a, b) => b.createdAt - a.createdAt);
   }, [records, searchTerm]);
 
@@ -113,12 +127,24 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRec
       category: activeConfigCategory,
       value: newItemValue.trim().toUpperCase()
     };
-    onUpdateListItems([...listItems, newItem]);
+    setLocalListItems([...localListItems, newItem]);
     setNewItemValue('');
   };
 
   const handleRemoveListItem = (id: string) => {
-    onUpdateListItems(listItems.filter(i => i.id !== id));
+    setLocalListItems(localListItems.filter(i => i.id !== id));
+  };
+
+  const handleSaveAndClose = async () => {
+    setIsSaving(true);
+    const success = await onUpdateListItems(localListItems);
+    setIsSaving(false);
+    if (success) {
+      setSaveSuccess(true);
+      setTimeout(() => setIsConfigModalOpen(false), 800);
+    } else {
+      alert("Erro ao salvar no banco de dados. Verifique sua conexão ou se as tabelas foram criadas.");
+    }
   };
 
   const getOptionsByCategory = (cat: string) => {
@@ -136,10 +162,11 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRec
         <div className="flex flex-wrap gap-3">
           <button 
             onClick={() => setIsConfigModalOpen(true)}
-            className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all border border-white/10"
+            className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all border border-white/10 flex items-center gap-2"
             title="Configurar Listas"
           >
             <Settings size={24} />
+            <span className="hidden md:inline text-[10px] font-black uppercase tracking-widest">Config</span>
           </button>
           <button 
             onClick={exportToCSV}
@@ -173,7 +200,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRec
         </div>
       </div>
 
-      {/* Container da Planilha */}
+      {/* Planilha */}
       <div className="mx-2 bg-white rounded-[2rem] border border-slate-200 shadow-xl overflow-hidden max-w-full">
         <div className="overflow-x-auto w-full scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
           <table className="w-full text-left border-collapse min-w-[2800px]">
@@ -185,11 +212,11 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRec
                 <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800">Secretaria</th>
                 <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800">Descrição Peças/Serv</th>
                 <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center">Nº Pedido Oficina</th>
-                <th className="px-4 py-4 text-[9px) font-black uppercase tracking-widest border-r border-slate-800 text-center">Oficina Próp/Terc</th>
-                <th className="px-4 py-4 text-[9px) font-black uppercase tracking-widest border-r border-slate-800 text-center">Data Lanç. Volus</th>
-                <th className="px-4 py-4 text-[9px) font-black uppercase tracking-widest border-r border-slate-800 text-center">Nº Orç. Peças (Agrup)</th>
-                <th className="px-4 py-4 text-[9px) font-black uppercase tracking-widest border-r border-slate-800 text-center">Nº Orç. Serv (Agrup)</th>
-                <th className="px-4 py-4 text-[9px) font-black uppercase tracking-widest border-r border-slate-800 text-center">Data Aprov. Volus</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center">Oficina Próp/Terc</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center">Data Lanç. Volus</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center">Nº Orç. Peças (Agrup)</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center">Nº Orç. Serv (Agrup)</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center">Data Aprov. Volus</th>
                 <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center text-white">Nº Orç. Aprovado</th>
                 <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center">Valor Total</th>
                 <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center">Nota Fiscal</th>
@@ -304,7 +331,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRec
                 <h3 className="text-2xl font-black text-slate-900 uppercase italic">Configurar Listas</h3>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Personalize os dropdowns da planilha</p>
               </div>
-              <button onClick={() => setIsConfigModalOpen(false)} className="p-4 hover:bg-slate-100 rounded-2xl transition-all"><X size={24} /></button>
+              <button disabled={isSaving} onClick={() => setIsConfigModalOpen(false)} className="p-4 hover:bg-slate-100 rounded-2xl transition-all"><X size={24} /></button>
             </div>
 
             <div className="flex border-b border-slate-100 bg-slate-50">
@@ -333,10 +360,10 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRec
               </div>
 
               <div className="max-h-64 overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                {listItems.filter(i => i.category === activeConfigCategory).length === 0 && (
+                {localListItems.filter(i => i.category === activeConfigCategory).length === 0 && (
                   <p className="text-center py-8 text-slate-300 font-black uppercase text-[10px] italic">Nenhum item cadastrado nesta lista</p>
                 )}
-                {listItems.filter(i => i.category === activeConfigCategory).map((item) => (
+                {localListItems.filter(i => i.category === activeConfigCategory).map((item) => (
                   <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 group">
                     <span className="text-xs font-black text-slate-700 uppercase">{item.value}</span>
                     <button onClick={() => handleRemoveListItem(item.id)} className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all">
@@ -348,7 +375,19 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRec
             </div>
 
             <div className="p-8 bg-slate-50 border-t border-slate-100">
-              <button onClick={() => setIsConfigModalOpen(false)} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest">Fechar e Salvar</button>
+              <button 
+                onClick={handleSaveAndClose} 
+                disabled={isSaving}
+                className={`w-full text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 transition-all ${saveSuccess ? 'bg-emerald-500' : 'bg-slate-900 hover:bg-black'}`}
+              >
+                {isSaving ? (
+                  <><Loader2 className="animate-spin" size={16} /> Salvando Dados...</>
+                ) : saveSuccess ? (
+                  <><CheckCircle2 size={16} /> Sucesso!</>
+                ) : (
+                  'Fechar e Salvar'
+                )}
+              </button>
             </div>
           </div>
         </div>
