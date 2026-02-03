@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Quote, QuoteType, Supplier, ReportRecord, ReportListItem } from './types';
+import { Quote, QuoteType, Supplier, ReportRecord, ReportListItem, SystemSettings } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { Auth } from './components/Auth';
 import QuoteForm from './components/QuoteForm';
@@ -8,7 +8,8 @@ import QuoteList from './components/QuoteList';
 import SettingsView from './components/SettingsView';
 import HistoryView from './components/HistoryView';
 import ReportsView from './components/ReportsView';
-import { Layout, Notebook, Settings, Bell, Search, History, Menu, X, LogOut, Loader2, AlertTriangle, ArrowRight, FileSpreadsheet } from 'lucide-react';
+import SystemSettingsView from './components/SystemSettingsView';
+import { Layout, Notebook, Settings, Bell, Search, History, Menu, X, LogOut, Loader2, AlertTriangle, ArrowRight, FileSpreadsheet, Monitor } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 
 const App: React.FC = () => {
@@ -19,8 +20,16 @@ const App: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeView, setActiveView] = useState<'dashboard' | 'history' | 'reports' | 'settings'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'history' | 'reports' | 'settings' | 'system'>('dashboard');
   const [isDemoMode, setIsDemoMode] = useState(false);
+  
+  // Configurações Dinâmicas de Marca
+  const [systemSettings, setSystemSettings] = useState<SystemSettings>({
+    name: "MECÂNICA VOLUS",
+    subtitle: "SISTEMA INTEGRADO DE ORÇAMENTOS",
+    logoUrl: null,
+    primaryColor: "indigo-600"
+  });
   
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -45,6 +54,12 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Carregar configurações do localStorage no início
+    const savedBrand = localStorage.getItem('system_brand_v1');
+    if (savedBrand) {
+      setSystemSettings(JSON.parse(savedBrand));
+    }
+
     if (isDemoMode) {
       const savedQuotes = localStorage.getItem('demo_quotes_v2');
       const savedSuppliers = localStorage.getItem('demo_suppliers');
@@ -73,11 +88,12 @@ const App: React.FC = () => {
     if (!isSupabaseConfigured || isDemoMode) return;
     setLoading(true);
     try {
-      const [quotesRes, suppliersRes, reportsRes, listsRes] = await Promise.all([
+      const [quotesRes, suppliersRes, reportsRes, listsRes, settingsRes] = await Promise.all([
         supabase.from('quotes').select('*').order('created_at', { ascending: false }),
         supabase.from('suppliers').select('*').order('name'),
         supabase.from('report_records').select('*').order('created_at', { ascending: false }),
-        supabase.from('report_list_items').select('*').order('value')
+        supabase.from('report_list_items').select('*').order('value'),
+        supabase.from('system_settings').select('*').limit(1).single()
       ]);
 
       if (quotesRes.data) {
@@ -108,20 +124,36 @@ const App: React.FC = () => {
 
       if (listsRes.data && listsRes.data.length > 0) {
         setReportListItems(listsRes.data as ReportListItem[]);
-      } else {
-        const defaults: ReportListItem[] = [
-          { id: 'd1', category: 'entrega', value: 'SIM-ENTREGUE' },
-          { id: 'd2', category: 'entrega', value: 'NAO' },
-          { id: 'd3', category: 'entrega', value: 'RECEBIDO' },
-        ];
-        if (listsRes.data && listsRes.data.length === 0) {
-            setReportListItems(defaults);
-        }
+      }
+
+      if (settingsRes.data) {
+        setSystemSettings(settingsRes.data as SystemSettings);
+        localStorage.setItem('system_brand_v1', JSON.stringify(settingsRes.data));
       }
     } catch (e) {
       console.error("Error fetching data:", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateSystemSettings = async (newSettings: SystemSettings) => {
+    setSystemSettings(newSettings);
+    localStorage.setItem('system_brand_v1', JSON.stringify(newSettings));
+    
+    if (isSupabaseConfigured && session?.user && !isDemoMode) {
+      try {
+        // Tentar atualizar ou inserir as configurações
+        const { data: existing } = await supabase.from('system_settings').select('id').limit(1).single();
+        
+        if (existing) {
+          await supabase.from('system_settings').update(newSettings).eq('id', existing.id);
+        } else {
+          await supabase.from('system_settings').insert({ ...newSettings, user_id: session.user.id });
+        }
+      } catch (err) {
+        console.error("Erro ao salvar no Supabase:", err);
+      }
     }
   };
 
@@ -300,7 +332,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (!session && !isDemoMode) return <Auth />;
+  if (!session && !isDemoMode) return <Auth branding={systemSettings} />;
 
   if (loading && quotes.length === 0) {
     return (
@@ -314,49 +346,75 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex overflow-x-hidden">
-      <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 text-slate-300 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+    <div className="min-h-screen bg-slate-50 flex overflow-x-hidden font-sans">
+      {/* Sidebar Personalizada */}
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-950 text-slate-300 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-full flex flex-col p-6">
-          <div className="flex items-center justify-between mb-10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-lg"><Notebook className="text-white" size={24} /></div>
-              <h1 className="text-white font-bold text-xl leading-none italic tracking-tighter">QuoteFlow</h1>
+          <div className="flex flex-col items-center mb-10 pb-6 border-b border-white/5">
+            <div className="flex items-center gap-3 w-full">
+              {systemSettings.logoUrl ? (
+                <img src={systemSettings.logoUrl} alt="Logo" className="w-10 h-10 object-contain rounded-lg" />
+              ) : (
+                <div className={`w-10 h-10 bg-${systemSettings.primaryColor} rounded-xl flex items-center justify-center shadow-lg`}>
+                  <Notebook className="text-white" size={24} />
+                </div>
+              )}
+              <h1 className="text-white font-black text-lg leading-tight uppercase tracking-tighter italic truncate">
+                {systemSettings.name}
+              </h1>
             </div>
-            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-500"><X size={20} /></button>
+            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden absolute top-6 right-6 text-slate-500"><X size={24} /></button>
           </div>
+          
           <nav className="flex-1 space-y-1">
-            <NavItem icon={<Layout size={20} />} label="Dashboard" active={activeView === 'dashboard'} onClick={() => { setActiveView('dashboard'); setIsSidebarOpen(false); }} />
-            <NavItem icon={<History size={20} />} label="Histórico" active={activeView === 'history'} onClick={() => { setActiveView('history'); setIsSidebarOpen(false); }} />
-            <NavItem icon={<FileSpreadsheet size={20} />} label="Relatórios" active={activeView === 'reports'} onClick={() => { setActiveView('reports'); setIsSidebarOpen(false); }} />
-            <NavItem icon={<Settings size={20} />} label="Fornecedores" active={activeView === 'settings'} onClick={() => { setActiveView('settings'); setIsSidebarOpen(false); }} />
+            <NavItem icon={<Layout size={20} />} label="Dashboard" active={activeView === 'dashboard'} color={systemSettings.primaryColor} onClick={() => { setActiveView('dashboard'); setIsSidebarOpen(false); }} />
+            <NavItem icon={<History size={20} />} label="Histórico" active={activeView === 'history'} color={systemSettings.primaryColor} onClick={() => { setActiveView('history'); setIsSidebarOpen(false); }} />
+            <NavItem icon={<FileSpreadsheet size={20} />} label="Relatórios" active={activeView === 'reports'} color={systemSettings.primaryColor} onClick={() => { setActiveView('reports'); setIsSidebarOpen(false); }} />
+            <NavItem icon={<Settings size={20} />} label="Fornecedores" active={activeView === 'settings'} color={systemSettings.primaryColor} onClick={() => { setActiveView('settings'); setIsSidebarOpen(false); }} />
+            <NavItem icon={<Monitor size={20} />} label="Sistema" active={activeView === 'system'} color={systemSettings.primaryColor} onClick={() => { setActiveView('system'); setIsSidebarOpen(false); }} />
           </nav>
-          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2 text-rose-400 font-black uppercase text-[10px] tracking-widest mt-auto"><LogOut size={16} /> Sair do Sistema</button>
+
+          <div className="mt-auto space-y-4">
+            <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Logado como:</p>
+              <p className="text-[10px] font-bold text-slate-300 truncate">{isDemoMode ? 'ADMINISTRADOR' : session?.user.email}</p>
+            </div>
+            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-3 text-rose-400 font-black uppercase text-[10px] tracking-widest hover:bg-rose-500/10 rounded-xl transition-all">
+              <LogOut size={16} /> Sair do Sistema
+            </button>
+          </div>
         </div>
       </aside>
 
-      <main className="flex-1 lg:ml-64 flex flex-col min-h-screen w-full overflow-x-hidden">
-        <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-30 px-4 flex items-center justify-between">
+      <main className="flex-1 lg:ml-64 flex flex-col min-h-screen w-full overflow-x-hidden bg-slate-50/50">
+        <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-30 px-4 flex items-center justify-between lg:justify-end">
           <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-slate-600"><Menu size={24} /></button>
-          <div className="flex items-center gap-3 px-4">
-             <div className="h-9 w-9 rounded-full bg-slate-900 flex items-center justify-center text-[11px] font-black text-white uppercase tracking-tighter shadow-xl">{isDemoMode ? 'ADM' : session?.user.email?.charAt(0)}</div>
+          <div className="flex items-center gap-4 px-4">
+             <div className="flex flex-col items-end hidden sm:flex">
+                <span className="text-[10px] font-black text-slate-900 uppercase tracking-tighter">{systemSettings.name}</span>
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Painel Administrativo</span>
+             </div>
+             <div className="h-10 w-10 rounded-xl bg-slate-900 flex items-center justify-center text-[12px] font-black text-white uppercase tracking-tighter shadow-xl">
+               {isDemoMode ? 'ADM' : session?.user.email?.charAt(0).toUpperCase()}
+             </div>
           </div>
         </header>
 
-        <div className={`p-4 md:p-6 w-full ${activeView === 'reports' ? '' : 'max-w-7xl mx-auto'} space-y-8 transition-all duration-500`}>
+        <div className={`p-4 md:p-6 w-full ${activeView === 'reports' ? '' : 'max-w-7xl mx-auto'} space-y-8`}>
           {activeView === 'dashboard' ? (
             <>
               <section ref={formRef}>
                 <div className="mb-6">
-                  <h2 className="text-4xl font-black text-slate-900 tracking-tighter leading-none mb-2 uppercase italic">Envio WhatsApp</h2>
-                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">Fluxo Rápido para Fornecedores</p>
+                  <h2 className="text-4xl font-black text-slate-900 tracking-tighter leading-none mb-2 uppercase italic">Novo Orçamento</h2>
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">Envio Rápido via WhatsApp</p>
                 </div>
                 <QuoteForm onSave={handleSaveQuotes} suppliers={suppliers} />
               </section>
               <section>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-slate-900 uppercase italic">Último Orçamento Enviado</h3>
+                  <h3 className="text-lg font-bold text-slate-900 uppercase italic">Último Processado</h3>
                   {quotes.length > 1 && (
-                    <button onClick={() => setActiveView('history')} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1 hover:underline">Ver Histórico <ArrowRight size={14} /></button>
+                    <button onClick={() => setActiveView('history')} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1 hover:underline">Histórico Completo <ArrowRight size={14} /></button>
                   )}
                 </div>
                 <QuoteList quotes={quotes.slice(0, 1)} onDelete={handleDeleteQuote} />
@@ -382,6 +440,11 @@ const App: React.FC = () => {
                 onDeleteSupplier={handleDeleteSupplier} 
               />
             </div>
+          ) : activeView === 'system' ? (
+            <SystemSettingsView 
+              settings={systemSettings}
+              onSave={handleUpdateSystemSettings}
+            />
           ) : (
              <div className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest">Aguardando dados...</div>
           )}
@@ -391,8 +454,8 @@ const App: React.FC = () => {
   );
 };
 
-const NavItem = ({ icon, label, active, onClick }: any) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${active ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+const NavItem = ({ icon, label, active, onClick, color }: any) => (
+  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${active ? `bg-${color} text-white shadow-xl shadow-${color}/30 translate-x-1` : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}>
     {icon} <span>{label}</span>
   </button>
 );
