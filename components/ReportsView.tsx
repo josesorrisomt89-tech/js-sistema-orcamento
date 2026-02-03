@@ -16,7 +16,7 @@ import {
   Edit2
 } from 'lucide-react';
 
-interface ReportsViewProps {
+export interface ReportsViewProps {
   records: ReportRecord[];
   listItems: ReportListItem[];
   onSaveRecord: (record: Omit<ReportRecord, 'id' | 'createdAt'>) => void;
@@ -25,7 +25,14 @@ interface ReportsViewProps {
   onUpdateListItems: (items: ReportListItem[]) => Promise<any>;
 }
 
-const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRecord, onUpdateRecord, onDeleteRecord, onUpdateListItems }) => {
+const ReportsView: React.FC<ReportsViewProps> = ({ 
+  records, 
+  listItems, 
+  onSaveRecord, 
+  onUpdateRecord, 
+  onDeleteRecord, 
+  onUpdateListItems 
+}) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
