@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Quote, QuoteType, Supplier } from './types';
+import { Quote, QuoteType, Supplier, AttachedFile } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { Auth } from './components/Auth';
 import QuoteForm from './components/QuoteForm';
 import QuoteList from './components/QuoteList';
 import SettingsView from './components/SettingsView';
 import HistoryView from './components/HistoryView';
-import { Layout, Notebook, Settings, Bell, Search, History, BarChart3, Menu, X, LogOut, Loader2, AlertTriangle, ExternalLink, Play } from 'lucide-react';
+import { Layout, Notebook, Settings, Bell, Search, History, BarChart3, Menu, X, LogOut, Loader2, AlertTriangle, ExternalLink, Play, ArrowRight } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 
 const App: React.FC = () => {
@@ -50,7 +50,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (isDemoMode) {
-      const savedQuotes = localStorage.getItem('demo_quotes');
+      const savedQuotes = localStorage.getItem('demo_quotes_v2');
       const savedSuppliers = localStorage.getItem('demo_suppliers');
       if (savedQuotes) setQuotes(JSON.parse(savedQuotes));
       if (savedSuppliers) setSuppliers(JSON.parse(savedSuppliers));
@@ -77,6 +77,7 @@ const App: React.FC = () => {
           quoteNumberParts: q.quote_number_parts,
           quoteNumberServices: q.quote_number_services,
           photo: q.photo,
+          files: q.files || [],
           observations: q.observations,
           createdAt: new Date(q.created_at).getTime()
         }));
@@ -97,7 +98,7 @@ const App: React.FC = () => {
     if (isDemoMode) {
       const updated = [...newQuotes, ...quotes];
       setQuotes(updated);
-      localStorage.setItem('demo_quotes', JSON.stringify(updated));
+      localStorage.setItem('demo_quotes_v2', JSON.stringify(updated));
       return;
     }
 
@@ -112,6 +113,7 @@ const App: React.FC = () => {
       quote_number_parts: q.quoteNumberParts,
       quote_number_services: q.quoteNumberServices,
       photo: q.photo,
+      files: q.files,
       observations: q.observations
     }));
 
@@ -124,7 +126,7 @@ const App: React.FC = () => {
       if (isDemoMode) {
         const updated = quotes.filter(q => q.id !== id);
         setQuotes(updated);
-        localStorage.setItem('demo_quotes', JSON.stringify(updated));
+        localStorage.setItem('demo_quotes_v2', JSON.stringify(updated));
         return;
       }
       if (!isSupabaseConfigured) return;
@@ -137,7 +139,7 @@ const App: React.FC = () => {
     if (isDemoMode) {
       const updated = quotes.map(q => q.id === updatedQuote.id ? updatedQuote : q);
       setQuotes(updated);
-      localStorage.setItem('demo_quotes', JSON.stringify(updated));
+      localStorage.setItem('demo_quotes_v2', JSON.stringify(updated));
       return;
     }
     if (!isSupabaseConfigured) return;
@@ -238,7 +240,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      {/* Sidebar Mobile Toggle */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 text-slate-300 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-full flex flex-col p-6">
           <div className="flex items-center justify-between mb-10">
@@ -257,7 +258,6 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 lg:ml-64 flex flex-col min-h-screen">
         <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-30 px-4 flex items-center justify-between">
           <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-slate-600"><Menu size={24} /></button>
@@ -276,15 +276,23 @@ const App: React.FC = () => {
               <section ref={formRef}>
                 <div className="mb-6">
                   <h2 className="text-3xl font-black text-slate-900 tracking-tight leading-none mb-1">Novo Orçamento</h2>
-                  <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Preencha e envie via WhatsApp</p>
+                  <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Preencha, anexe e envie no WhatsApp</p>
                 </div>
                 <QuoteForm onSave={handleSaveQuotes} suppliers={suppliers} />
               </section>
               <section>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-slate-900">Enviados Recentemente</h3>
+                  <h3 className="text-lg font-bold text-slate-900">Último Orçamento Enviado</h3>
+                  {quotes.length > 1 && (
+                    <button 
+                      onClick={() => setActiveView('history')}
+                      className="text-xs font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1 hover:underline"
+                    >
+                      Ver Histórico Completo <ArrowRight size={14} />
+                    </button>
+                  )}
                 </div>
-                <QuoteList quotes={filteredQuotes.slice(0, 5)} onDelete={handleDeleteQuote} />
+                <QuoteList quotes={filteredQuotes.slice(0, 1)} onDelete={handleDeleteQuote} />
               </section>
             </>
           ) : activeView === 'history' ? (
@@ -292,7 +300,7 @@ const App: React.FC = () => {
           ) : activeView === 'settings' ? (
             <SettingsView suppliers={suppliers} onAddSupplier={handleAddSupplier} onUpdateSupplier={handleUpdateSupplier} onDeleteSupplier={handleDeleteSupplier} />
           ) : (
-             <div className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest">Em Brevê</div>
+             <div className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest">Em Breve</div>
           )}
         </div>
       </main>
