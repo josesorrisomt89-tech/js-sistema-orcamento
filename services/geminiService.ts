@@ -26,7 +26,7 @@ export async function formatQuoteMessage(
       - Nº Orçamento Serviços: ${servicesNumber || '---'}
       - Observações: ${observations}
 
-      ESTILO OBRIGATÓRIO:
+      ESTILO OBRIGATÓRIO (NÃO ADICIONE NADA ALÉM DISSO):
       ORCAMENTO *VOLUS* ${typeLabel}
       EMPRESA: *${supplierName.toUpperCase()}*
 
@@ -36,16 +36,18 @@ export async function formatQuoteMessage(
 
       OBS: *${observations.toUpperCase()}*
 
-      REGRAS:
-      - Use asteriscos para negrito.
-      - Retorne APENAS o texto da mensagem.
-      - NÃO use blocos de código markdown (como \`\`\`).`,
+      REGRAS CRÍTICAS:
+      - Use apenas asteriscos para negrito.
+      - Retorne APENAS o texto puro da mensagem.
+      - PROIBIDO usar blocos de código markdown (como \`\`\`).
+      - NÃO adicione saudações ou explicações.`,
     });
 
-    // Sanitização rigorosa para remover qualquer markdown retornado pela IA
+    // Sanitização agressiva para remover qualquer markdown ou caracteres de controle indesejados
     let text = response.text || "";
-    text = text.replace(/```[a-z]*\n?/gi, ''); // Remove ```whatsapp ou ```
-    text = text.replace(/```/g, ''); 
+    text = text.replace(/```[a-z]*\n?/gi, ''); // Remove aberturas de bloco de código
+    text = text.replace(/```/g, '');           // Remove fechamentos de bloco de código
+    text = text.replace(/`([^`]+)`/g, '$1');   // Remove crases individuais mantendo o texto interno
     
     return text.trim() || `ORCAMENTO *VOLUS* ${typeLabel}\nEMPRESA: *${supplierName.toUpperCase()}*\n\nPREFIXO: *${prefix || '---'}*\nORC. VOLUS PEÇAS: *${partsNumber || '---'}*\nORC. VOLUS SERVIÇOS: *${servicesNumber || '---'}*\n\nOBS: *${observations.toUpperCase()}*`;
   } catch (error) {
