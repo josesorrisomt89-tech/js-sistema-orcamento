@@ -126,13 +126,16 @@ const App: React.FC = () => {
   };
 
   const handleSaveQuotes = async (newQuotes: Quote[]) => {
+    // Primeiro atualiza o estado local para feedback imediato
+    setQuotes(prev => [...newQuotes, ...prev]);
+
     if (isDemoMode) {
-      const updated = [...newQuotes, ...quotes];
-      setQuotes(updated);
-      localStorage.setItem('demo_quotes_v2', JSON.stringify(updated));
+      localStorage.setItem('demo_quotes_v2', JSON.stringify([...newQuotes, ...quotes]));
       return;
     }
+
     if (!session?.user || !isSupabaseConfigured) return;
+    
     const quotesToInsert = newQuotes.map(q => ({
       user_id: session.user.id,
       type: q.type,
@@ -145,10 +148,15 @@ const App: React.FC = () => {
       files: q.files,
       observations: q.observations
     }));
+
     const { error } = await supabase.from('quotes').insert(quotesToInsert);
-    if (!error) fetchData();
+    if (!error) {
+      // Re-busca para garantir IDs sincronizados do Supabase
+      fetchData();
+    }
   };
 
+  // ... (resto do componente se mantém igual)
   const handleSaveReportRecord = async (newRecord: Omit<ReportRecord, 'id' | 'createdAt'>) => {
     if (isDemoMode) {
       const record: ReportRecord = { ...newRecord, id: crypto.randomUUID(), createdAt: Date.now() };
