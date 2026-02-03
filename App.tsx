@@ -1,23 +1,24 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Quote, QuoteType, Supplier, AttachedFile } from './types';
+import { Quote, QuoteType, Supplier, ReportRecord } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { Auth } from './components/Auth';
 import QuoteForm from './components/QuoteForm';
 import QuoteList from './components/QuoteList';
 import SettingsView from './components/SettingsView';
 import HistoryView from './components/HistoryView';
-import { Layout, Notebook, Settings, Bell, Search, History, BarChart3, Menu, X, LogOut, Loader2, AlertTriangle, ExternalLink, Play, ArrowRight } from 'lucide-react';
+import ReportsView from './components/ReportsView';
+import { Layout, Notebook, Settings, Bell, Search, History, Menu, X, LogOut, Loader2, AlertTriangle, ArrowRight, FileSpreadsheet } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [reportRecords, setReportRecords] = useState<ReportRecord[]>([]); // Estado Independente para a Planilha
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'ALL' | QuoteType>('ALL');
   const [activeView, setActiveView] = useState<'dashboard' | 'history' | 'reports' | 'settings'>('dashboard');
   const [isDemoMode, setIsDemoMode] = useState(false);
   
@@ -31,18 +32,13 @@ const App: React.FC = () => {
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) {
-        fetchData();
-      } else {
-        setLoading(false);
-      }
+      if (session) fetchData();
+      else setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session) {
-        fetchData();
-      }
+      if (session) fetchData();
     });
 
     return () => subscription.unsubscribe();
@@ -52,8 +48,10 @@ const App: React.FC = () => {
     if (isDemoMode) {
       const savedQuotes = localStorage.getItem('demo_quotes_v2');
       const savedSuppliers = localStorage.getItem('demo_suppliers');
+      const savedReports = localStorage.getItem('demo_reports_v2');
       if (savedQuotes) setQuotes(JSON.parse(savedQuotes));
       if (savedSuppliers) setSuppliers(JSON.parse(savedSuppliers));
+      if (savedReports) setReportRecords(JSON.parse(savedReports));
       setLoading(false);
     }
   }, [isDemoMode]);
@@ -62,13 +60,14 @@ const App: React.FC = () => {
     if (!isSupabaseConfigured || isDemoMode) return;
     setLoading(true);
     try {
-      const [quotesRes, suppliersRes] = await Promise.all([
+      const [quotesRes, suppliersRes, reportsRes] = await Promise.all([
         supabase.from('quotes').select('*').order('created_at', { ascending: false }),
-        supabase.from('suppliers').select('*').order('name')
+        supabase.from('suppliers').select('*').order('name'),
+        supabase.from('report_records').select('*').order('created_at', { ascending: false })
       ]);
 
       if (quotesRes.data) {
-        const mappedQuotes: Quote[] = (quotesRes.data as any[]).map(q => ({
+        setQuotes((quotesRes.data as any[]).map(q => ({
           id: q.id,
           type: q.type as QuoteType,
           supplierName: q.supplier_name,
@@ -80,12 +79,17 @@ const App: React.FC = () => {
           files: q.files || [],
           observations: q.observations,
           createdAt: new Date(q.created_at).getTime()
-        }));
-        setQuotes(mappedQuotes);
+        })));
       }
 
-      if (suppliersRes.data) {
-        setSuppliers(suppliersRes.data as Supplier[]);
+      if (suppliersRes.data) setSuppliers(suppliersRes.data as Supplier[]);
+      
+      if (reportsRes.data) {
+        setReportRecords((reportsRes.data as any[]).map(r => ({
+          ...r,
+          id: r.id,
+          createdAt: new Date(r.created_at).getTime()
+        })));
       }
     } catch (e) {
       console.error("Error fetching data:", e);
@@ -101,9 +105,7 @@ const App: React.FC = () => {
       localStorage.setItem('demo_quotes_v2', JSON.stringify(updated));
       return;
     }
-
     if (!session?.user || !isSupabaseConfigured) return;
-
     const quotesToInsert = newQuotes.map(q => ({
       user_id: session.user.id,
       type: q.type,
@@ -116,20 +118,48 @@ const App: React.FC = () => {
       files: q.files,
       observations: q.observations
     }));
+    const { error } = await supabase.from('quotes').insert(quotesToInsert);
+    if (!error) fetchData();
+  };
 
-    const { data, error } = await supabase.from('quotes').insert(quotesToInsert).select();
-    if (!error && data) fetchData();
+  // Funções Independentes para a Planilha de Relatórios
+  const handleSaveReportRecord = async (newRecord: Omit<ReportRecord, 'id' | 'createdAt'>) => {
+    if (isDemoMode) {
+      const record: ReportRecord = { ...newRecord, id: crypto.randomUUID(), createdAt: Date.now() };
+      const updated = [record, ...reportRecords];
+      setReportRecords(updated);
+      localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
+      return;
+    }
+    if (!session?.user || !isSupabaseConfigured) return;
+    const { error } = await supabase.from('report_records').insert({
+      user_id: session.user.id,
+      ...newRecord
+    });
+    if (!error) fetchData();
+  };
+
+  const handleDeleteReportRecord = async (id: string) => {
+    if (confirm("Remover este registro da planilha permanentemente?")) {
+      if (isDemoMode) {
+        const updated = reportRecords.filter(r => r.id !== id);
+        setReportRecords(updated);
+        localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
+        return;
+      }
+      const { error } = await supabase.from('report_records').delete().eq('id', id);
+      if (!error) fetchData();
+    }
   };
 
   const handleDeleteQuote = async (id: string) => {
-    if (confirm("Remover do banco de dados permanentemente?")) {
+    if (confirm("Remover do histórico de mensagens permanentemente?")) {
       if (isDemoMode) {
         const updated = quotes.filter(q => q.id !== id);
         setQuotes(updated);
         localStorage.setItem('demo_quotes_v2', JSON.stringify(updated));
         return;
       }
-      if (!isSupabaseConfigured) return;
       const { error } = await supabase.from('quotes').delete().eq('id', id);
       if (!error) setQuotes(prev => prev.filter(q => q.id !== id));
     }
@@ -142,7 +172,6 @@ const App: React.FC = () => {
       localStorage.setItem('demo_quotes_v2', JSON.stringify(updated));
       return;
     }
-    if (!isSupabaseConfigured) return;
     const { error } = await supabase.from('quotes').update({
       type: updatedQuote.type,
       observations: updatedQuote.observations
@@ -150,60 +179,9 @@ const App: React.FC = () => {
     if (!error) setQuotes(prev => prev.map(q => q.id === updatedQuote.id ? updatedQuote : q));
   };
 
-  const handleAddSupplier = async (supplier: Omit<Supplier, 'id'>) => {
-    if (isDemoMode) {
-      const newSupplier = { ...supplier, id: crypto.randomUUID() };
-      const updated = [...suppliers, newSupplier];
-      setSuppliers(updated);
-      localStorage.setItem('demo_suppliers', JSON.stringify(updated));
-      return;
-    }
-    if (!session?.user || !isSupabaseConfigured) return;
-    const { data, error } = await supabase.from('suppliers').insert({
-      user_id: session.user.id,
-      name: supplier.name,
-      phone: supplier.phone
-    }).select();
-    if (!error && data) fetchData();
-  };
-
-  const handleUpdateSupplier = async (updatedSupplier: Supplier) => {
-    if (isDemoMode) {
-      const updated = suppliers.map(s => s.id === updatedSupplier.id ? updatedSupplier : s);
-      setSuppliers(updated);
-      localStorage.setItem('demo_suppliers', JSON.stringify(updated));
-      return;
-    }
-    if (!isSupabaseConfigured) return;
-    const { error } = await supabase.from('suppliers').update({
-      name: updatedSupplier.name,
-      phone: updatedSupplier.phone
-    }).eq('id', updatedSupplier.id);
-    if (!error) fetchData();
-  };
-
-  const handleDeleteSupplier = async (id: string) => {
-    if (confirm("Remover fornecedor do sistema?")) {
-      if (isDemoMode) {
-        const updated = suppliers.filter(s => s.id !== id);
-        setSuppliers(updated);
-        localStorage.setItem('demo_suppliers', JSON.stringify(updated));
-        return;
-      }
-      if (!isSupabaseConfigured) return;
-      const { error } = await supabase.from('suppliers').delete().eq('id', id);
-      if (!error) fetchData();
-    }
-  };
-
   const handleLogout = async () => {
-    if (isDemoMode) {
-      setIsDemoMode(false);
-      return;
-    }
-    if (isSupabaseConfigured) {
-      await supabase.auth.signOut();
-    }
+    if (isDemoMode) setIsDemoMode(false);
+    else if (isSupabaseConfigured) await supabase.auth.signOut();
   };
 
   if (!isSupabaseConfigured && !isDemoMode) {
@@ -215,7 +193,7 @@ const App: React.FC = () => {
           </div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Configuração</h1>
           <p className="text-slate-500 font-medium">Configure o Supabase para ativar a Nuvem.</p>
-          <button onClick={() => setIsDemoMode(true)} className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-indigo-200">ENTRAR MODO TESTE</button>
+          <button onClick={() => setIsDemoMode(true)} className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-indigo-200 uppercase tracking-widest text-xs">Entrar em Modo Teste Local</button>
         </div>
       </div>
     );
@@ -231,76 +209,67 @@ const App: React.FC = () => {
     );
   }
 
-  const filteredQuotes = quotes.filter(quote => {
-    const s = searchTerm.toLowerCase();
-    const matchesSearch = quote.supplierName.toLowerCase().includes(s) || quote.observations.toLowerCase().includes(s) || quote.supplierPhone.includes(s);
-    const matchesFilter = filterType === 'ALL' || quote.type === filterType;
-    return matchesSearch && matchesFilter;
-  });
-
   return (
     <div className="min-h-screen bg-slate-50 flex">
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 text-slate-300 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-full flex flex-col p-6">
           <div className="flex items-center justify-between mb-10">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center"><Notebook className="text-white" size={24} /></div>
-              <h1 className="text-white font-bold text-xl leading-none">QuoteFlow</h1>
+              <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-lg"><Notebook className="text-white" size={24} /></div>
+              <h1 className="text-white font-bold text-xl leading-none italic tracking-tighter">QuoteFlow</h1>
             </div>
             <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-500"><X size={20} /></button>
           </div>
           <nav className="flex-1 space-y-1">
             <NavItem icon={<Layout size={20} />} label="Dashboard" active={activeView === 'dashboard'} onClick={() => { setActiveView('dashboard'); setIsSidebarOpen(false); }} />
             <NavItem icon={<History size={20} />} label="Histórico" active={activeView === 'history'} onClick={() => { setActiveView('history'); setIsSidebarOpen(false); }} />
-            <NavItem icon={<Settings size={20} />} label="Configurações" active={activeView === 'settings'} onClick={() => { setActiveView('settings'); setIsSidebarOpen(false); }} />
+            <NavItem icon={<FileSpreadsheet size={20} />} label="Relatórios" active={activeView === 'reports'} onClick={() => { setActiveView('reports'); setIsSidebarOpen(false); }} />
+            <NavItem icon={<Settings size={20} />} label="Fornecedores" active={activeView === 'settings'} onClick={() => { setActiveView('settings'); setIsSidebarOpen(false); }} />
           </nav>
-          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2 text-rose-400 font-black uppercase text-xs tracking-widest"><LogOut size={16} /> Sair</button>
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2 text-rose-400 font-black uppercase text-[10px] tracking-widest mt-auto"><LogOut size={16} /> Sair do Sistema</button>
         </div>
       </aside>
 
       <main className="flex-1 lg:ml-64 flex flex-col min-h-screen">
         <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-30 px-4 flex items-center justify-between">
           <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-slate-600"><Menu size={24} /></button>
-          <div className="hidden md:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-            <Search size={16} className="text-slate-400" />
-            <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-transparent border-none outline-none text-sm w-64" />
-          </div>
           <div className="flex items-center gap-3">
-             <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold text-white uppercase">{isDemoMode ? 'T' : session?.user.email?.charAt(0)}</div>
+             <div className="h-9 w-9 rounded-full bg-slate-900 flex items-center justify-center text-[11px] font-black text-white uppercase tracking-tighter shadow-xl">{isDemoMode ? 'ADM' : session?.user.email?.charAt(0)}</div>
           </div>
         </header>
 
-        <div className="p-4 md:p-10 max-w-5xl mx-auto w-full space-y-8">
+        <div className="p-4 md:p-10 max-w-7xl mx-auto w-full space-y-8">
           {activeView === 'dashboard' ? (
             <>
               <section ref={formRef}>
                 <div className="mb-6">
-                  <h2 className="text-3xl font-black text-slate-900 tracking-tight leading-none mb-1">Novo Orçamento</h2>
-                  <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Preencha, anexe e envie no WhatsApp</p>
+                  <h2 className="text-4xl font-black text-slate-900 tracking-tighter leading-none mb-2 uppercase italic">Envio WhatsApp</h2>
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">Fluxo Rápido para Fornecedores</p>
                 </div>
                 <QuoteForm onSave={handleSaveQuotes} suppliers={suppliers} />
               </section>
               <section>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-slate-900">Último Orçamento Enviado</h3>
+                  <h3 className="text-lg font-bold text-slate-900 uppercase italic">Último Orçamento Enviado</h3>
                   {quotes.length > 1 && (
-                    <button 
-                      onClick={() => setActiveView('history')}
-                      className="text-xs font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1 hover:underline"
-                    >
-                      Ver Histórico Completo <ArrowRight size={14} />
-                    </button>
+                    <button onClick={() => setActiveView('history')} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1 hover:underline">Ver Histórico <ArrowRight size={14} /></button>
                   )}
                 </div>
-                <QuoteList quotes={filteredQuotes.slice(0, 1)} onDelete={handleDeleteQuote} />
+                <QuoteList quotes={quotes.slice(0, 1)} onDelete={handleDeleteQuote} />
               </section>
             </>
           ) : activeView === 'history' ? (
             <HistoryView quotes={quotes} onDelete={handleDeleteQuote} onUpdateQuote={handleUpdateQuote} />
+          ) : activeView === 'reports' ? (
+            <ReportsView 
+              records={reportRecords} 
+              onSaveRecord={handleSaveReportRecord} 
+              onDeleteRecord={handleDeleteReportRecord} 
+            />
           ) : activeView === 'settings' ? (
-            <SettingsView suppliers={suppliers} onAddSupplier={handleAddSupplier} onUpdateSupplier={handleUpdateSupplier} onDeleteSupplier={handleDeleteSupplier} />
+            <SettingsView suppliers={suppliers} onAddSupplier={async s => {}} onUpdateSupplier={async s => {}} onDeleteSupplier={async id => {}} />
           ) : (
-             <div className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest">Em Breve</div>
+             <div className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest">Aguardando dados...</div>
           )}
         </div>
       </main>
@@ -309,7 +278,7 @@ const App: React.FC = () => {
 };
 
 const NavItem = ({ icon, label, active, onClick }: any) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-black uppercase tracking-widest transition-all ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:bg-slate-800'}`}>
+  <button onClick={onClick} className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${active ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
     {icon} <span>{label}</span>
   </button>
 );
