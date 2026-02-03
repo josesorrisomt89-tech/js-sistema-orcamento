@@ -243,7 +243,7 @@ const App: React.FC = () => {
     if (!error) fetchData();
   };
 
-  const handleUpdateReportRecord = async (id: string, updatedFields: Omit<ReportRecord, 'id' | 'createdAt'>) => {
+  const handleUpdateReportRecord = async (id: string, updatedFields: Partial<ReportRecord>) => {
     if (isDemoMode) {
       const updated = reportRecords.map(r => r.id === id ? { ...r, ...updatedFields } : r);
       setReportRecords(updated);
@@ -256,15 +256,7 @@ const App: React.FC = () => {
   };
 
   const handleConfirmProtocol = async (id: string) => {
-    if (isDemoMode) {
-      const updated = reportRecords.map(r => r.id === id ? { ...r, entregueRelatorio: 'RECEBIDO - PROTOCOLADO' } : r);
-      setReportRecords(updated);
-      localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
-      return;
-    }
-    if (!session?.user || !isSupabaseConfigured) return;
-    const { error } = await supabase.from('report_records').update({ entregueRelatorio: 'RECEBIDO - PROTOCOLADO' }).eq('id', id);
-    if (!error) fetchData();
+    await handleUpdateReportRecord(id, { entregueRelatorio: 'RECEBIDO - PROTOCOLADO' });
   };
 
   const handleConfirmProtocolBatch = async (ids: string[]) => {
@@ -471,6 +463,7 @@ const App: React.FC = () => {
               records={reportRecords}
               onConfirm={handleConfirmProtocol}
               onConfirmBatch={handleConfirmProtocolBatch}
+              onUpdateRecord={handleUpdateReportRecord}
             />
           ) : activeView === 'settings' ? (
             <div className="max-w-7xl mx-auto">
