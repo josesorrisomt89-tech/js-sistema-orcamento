@@ -69,3 +69,10 @@ export interface Supplier {
   phone: string;
   category?: string;
 }
+
+export interface SystemSettings {
+  name: string;
+  logoUrl: string | null;
+  primaryColor: string;
+  subtitle: string;
+}
