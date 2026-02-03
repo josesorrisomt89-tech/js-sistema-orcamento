@@ -11,6 +11,22 @@ import ReportsView from './components/ReportsView';
 import { Layout, Notebook, Settings, Bell, Search, History, Menu, X, LogOut, Loader2, AlertTriangle, ArrowRight, FileSpreadsheet } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 
+/* 
+  COMANDO SQL PARA CRIAR A TABELA NO SUPABASE (Execute no SQL Editor):
+  
+  create table report_list_items (
+    id uuid default uuid_generate_v4() primary key,
+    user_id uuid references auth.users not null,
+    category text not null, -- 'secretaria', 'fornecedor', 'status', 'entrega'
+    value text not null,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  );
+
+  alter table report_list_items enable row level security;
+  create policy "Users can manage their own list items" on report_list_items
+    for all using (auth.uid() = user_id);
+*/
+
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -54,9 +70,10 @@ const App: React.FC = () => {
       if (savedQuotes) setQuotes(JSON.parse(savedQuotes));
       if (savedSuppliers) setSuppliers(JSON.parse(savedSuppliers));
       if (savedReports) setReportRecords(JSON.parse(savedReports));
-      if (savedListItems) setReportListItems(JSON.parse(savedListItems));
-      else {
-        // Default options for report delivery
+      
+      if (savedListItems) {
+        setReportListItems(JSON.parse(savedListItems));
+      } else {
         const defaults: ReportListItem[] = [
           { id: 'd1', category: 'entrega', value: 'SIM-ENTREGUE' },
           { id: 'd2', category: 'entrega', value: 'NAO' },
@@ -76,7 +93,7 @@ const App: React.FC = () => {
         supabase.from('quotes').select('*').order('created_at', { ascending: false }),
         supabase.from('suppliers').select('*').order('name'),
         supabase.from('report_records').select('*').order('created_at', { ascending: false }),
-        supabase.from('report_list_items').select('*')
+        supabase.from('report_list_items').select('*').order('value')
       ]);
 
       if (quotesRes.data) {
@@ -105,11 +122,16 @@ const App: React.FC = () => {
         })));
       }
 
-      if (listsRes.data) {
+      if (listsRes.data && listsRes.data.length > 0) {
         setReportListItems(listsRes.data as ReportListItem[]);
-      } else {
-        // Se a tabela não existir ou estiver vazia em um novo projeto, podemos deixar vazio
-        // ou adicionar os defaults se for a primeira vez.
+      } else if (listsRes.data && listsRes.data.length === 0) {
+        // Inicializar com opções padrão caso esteja vazio
+        const defaults: ReportListItem[] = [
+          { id: 'd1', category: 'entrega', value: 'SIM-ENTREGUE' },
+          { id: 'd2', category: 'entrega', value: 'NAO' },
+          { id: 'd3', category: 'entrega', value: 'RECEBIDO' },
+        ];
+        setReportListItems(defaults);
       }
     } catch (e) {
       console.error("Error fetching data:", e);
@@ -166,12 +188,28 @@ const App: React.FC = () => {
     }
     if (!session?.user || !isSupabaseConfigured) return;
     
-    // Simplificando: Deletamos todos e inserimos novamente para este usuário
-    await supabase.from('report_list_items').delete().eq('user_id', session.user.id);
-    const { error } = await supabase.from('report_list_items').insert(
-      items.map(i => ({ user_id: session.user.id, category: i.category, value: i.value }))
-    );
-    if (!error) fetchData();
+    try {
+      // Deletar itens antigos do usuário
+      await supabase.from('report_list_items').delete().eq('user_id', session.user.id);
+      
+      // Inserir novos itens
+      const { error } = await supabase.from('report_list_items').insert(
+        items.map(i => ({ 
+          user_id: session.user.id, 
+          category: i.category, 
+          value: i.value.toUpperCase().trim() 
+        }))
+      );
+      
+      if (!error) {
+        await fetchData();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Error updating list items:", err);
+      return false;
+    }
   };
 
   const handleDeleteReportRecord = async (id: string) => {
