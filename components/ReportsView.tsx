@@ -13,7 +13,12 @@ import {
   ListPlus,
   Loader2,
   CheckCircle2,
-  Edit2
+  Edit2,
+  DollarSign,
+  Clock,
+  CheckCircle,
+  ClipboardList,
+  Activity
 } from 'lucide-react';
 
 export interface ReportsViewProps {
@@ -42,7 +47,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   
-  // Estado local para as listas dentro do modal para edição fluida
   const [localListItems, setLocalListItems] = useState<ReportListItem[]>([]);
 
   useEffect(() => {
@@ -72,6 +76,22 @@ const ReportsView: React.FC<ReportsViewProps> = ({
     entregueRelatorio: '',
     observacao: ''
   });
+
+  // Métricas do Dashboard
+  const stats = useMemo(() => {
+    const parseCurrency = (val: string) => {
+      if (!val) return 0;
+      return parseFloat(val.replace(/[^\d,.-]/g, '').replace('.', '').replace(',', '.')) || 0;
+    };
+
+    return {
+      totalValor: records.reduce((acc, r) => acc + parseCurrency(r.valorTotal), 0),
+      aguardandoOrc: records.filter(r => r.status?.toUpperCase().includes('AGUARDANDO ORÇAMENTO') || r.status?.toUpperCase().includes('ORÇAMENTO')).length,
+      aprovados: records.filter(r => r.status?.toUpperCase() === 'APROVADO' || r.status?.toUpperCase() === 'AUTORIZADO').length,
+      aguardandoProtocolo: records.filter(r => r.status?.toUpperCase().includes('PROTOCOLO') || r.status?.toUpperCase().includes('AGUARDANDO PROTOCOLO')).length,
+      concluidos: records.filter(r => r.status?.toUpperCase() === 'CONCLUÍDO' || r.status?.toUpperCase() === 'FINALIZADO' || r.status?.toUpperCase() === 'CONCLUIDO').length,
+    };
+  }, [records]);
 
   const resetForm = () => {
     setFormData({
@@ -192,7 +212,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
       setSaveSuccess(true);
       setTimeout(() => setIsConfigModalOpen(false), 800);
     } else {
-      alert("Erro ao salvar no banco de dados. Verifique sua conexão ou se as tabelas foram criadas.");
+      alert("Erro ao salvar no banco de dados.");
     }
   };
 
@@ -201,7 +221,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 w-full overflow-x-hidden">
+    <div className="space-y-6 animate-in fade-in duration-500 w-full overflow-x-hidden pb-10">
       {/* Header */}
       <div className="bg-slate-900 p-6 md:p-10 rounded-[2.5rem] text-white shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6 mx-2">
         <div>
@@ -230,6 +250,40 @@ const ReportsView: React.FC<ReportsViewProps> = ({
             <Plus size={18} /> Novo Lançamento
           </button>
         </div>
+      </div>
+
+      {/* Dashboard Cards */}
+      <div className="mx-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatCard 
+          icon={<DollarSign size={24} />} 
+          label="Valor Total de Serviços" 
+          value={`R$ ${stats.totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} 
+          color="bg-slate-900" 
+        />
+        <StatCard 
+          icon={<Clock size={24} />} 
+          label="Aguardando Orçamento" 
+          value={stats.aguardandoOrc.toString()} 
+          color="bg-amber-500" 
+        />
+        <StatCard 
+          icon={<CheckCircle2 size={24} />} 
+          label="Aprovados / Autorizados" 
+          value={stats.aprovados.toString()} 
+          color="bg-blue-600" 
+        />
+        <StatCard 
+          icon={<ClipboardList size={24} />} 
+          label="Aguardando Protocolo" 
+          value={stats.aguardandoProtocolo.toString()} 
+          color="bg-purple-600" 
+        />
+        <StatCard 
+          icon={<CheckCircle size={24} />} 
+          label="Concluídos e Fechados" 
+          value={stats.concluidos.toString()} 
+          color="bg-emerald-600" 
+        />
       </div>
 
       {/* Pesquisa */}
@@ -305,7 +359,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
                   <td className="px-4 py-4 text-[11px] font-black text-slate-900 border-r border-slate-100 uppercase">{r.fornecedor}</td>
                   <td className="px-4 py-4 text-[11px] font-bold text-slate-500 border-r border-slate-100 uppercase">{r.responsavel}</td>
                   <td className="px-4 py-4 border-r border-slate-100 text-center">
-                    <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${r.status === 'CONCLUÍDO' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                    <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${r.status?.toUpperCase() === 'CONCLUÍDO' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
                       {r.status}
                     </span>
                   </td>
@@ -318,7 +372,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
         </div>
       </div>
 
-      {/* Modal Lançamento / Edição */}
+      {/* Modais... */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-5xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -378,7 +432,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
         </div>
       )}
 
-      {/* Modal de Configuração de Listas */}
+      {/* Modal Config */}
       {isConfigModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in zoom-in duration-300">
           <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col">
@@ -401,7 +455,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
               <div className="flex gap-2">
                 <input 
                   type="text" 
-                  placeholder={`Adicionar novo em ${activeConfigCategory}...`} 
+                  placeholder={`Adicionar novo...`} 
                   className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs uppercase"
                   value={newItemValue}
                   onChange={(e) => setNewItemValue(e.target.value)}
@@ -416,9 +470,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({
               </div>
 
               <div className="max-h-64 overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                {localListItems.filter(i => i.category === activeConfigCategory).length === 0 && (
-                  <p className="text-center py-8 text-slate-300 font-black uppercase text-[10px] italic">Nenhum item cadastrado nesta lista</p>
-                )}
                 {localListItems.filter(i => i.category === activeConfigCategory).map((item) => (
                   <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 group">
                     <span className="text-xs font-black text-slate-700 uppercase">{item.value}</span>
@@ -436,13 +487,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
                 disabled={isSaving}
                 className={`w-full text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 transition-all ${saveSuccess ? 'bg-emerald-500' : 'bg-slate-900 hover:bg-black'}`}
               >
-                {isSaving ? (
-                  <><Loader2 className="animate-spin" size={16} /> Salvando Dados...</>
-                ) : saveSuccess ? (
-                  <><CheckCircle2 size={16} /> Sucesso!</>
-                ) : (
-                  'Fechar e Salvar'
-                )}
+                {isSaving ? <Loader2 className="animate-spin" size={16} /> : saveSuccess ? <CheckCircle2 size={16} /> : 'Salvar Alterações'}
               </button>
             </div>
           </div>
@@ -451,6 +496,19 @@ const ReportsView: React.FC<ReportsViewProps> = ({
     </div>
   );
 };
+
+// Componente Interno: StatCard
+const StatCard = ({ icon, label, value, color }: { icon: React.ReactNode, label: string, value: string, color: string }) => (
+  <div className={`p-6 rounded-[2rem] ${color} text-white shadow-xl flex items-center gap-5 transition-transform hover:scale-[1.02] duration-300`}>
+    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+      {icon}
+    </div>
+    <div className="overflow-hidden">
+      <p className="text-[10px] font-black uppercase tracking-widest opacity-60 truncate">{label}</p>
+      <h3 className="text-xl font-black tracking-tighter truncate leading-none mt-1">{value}</h3>
+    </div>
+  </div>
+);
 
 const Field = ({ label, type = "text", value, onChange, options = [] }: any) => (
   <div className="space-y-2">
