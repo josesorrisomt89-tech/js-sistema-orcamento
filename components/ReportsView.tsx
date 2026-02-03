@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { ReportRecord } from '../types';
+import { ReportRecord, ReportListItem } from '../types';
 import { 
   FileSpreadsheet, 
   Download, 
@@ -9,21 +9,25 @@ import {
   X, 
   Save, 
   Trash2,
-  Filter,
-  ArrowRight
+  Settings,
+  ListPlus
 } from 'lucide-react';
 
 interface ReportsViewProps {
   records: ReportRecord[];
+  listItems: ReportListItem[];
   onSaveRecord: (record: Omit<ReportRecord, 'id' | 'createdAt'>) => void;
   onDeleteRecord: (id: string) => void;
+  onUpdateListItems: (items: ReportListItem[]) => void;
 }
 
-const ReportsView: React.FC<ReportsViewProps> = ({ records, onSaveRecord, onDeleteRecord }) => {
+const ReportsView: React.FC<ReportsViewProps> = ({ records, listItems, onSaveRecord, onDeleteRecord, onUpdateListItems }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [newItemValue, setNewItemValue] = useState('');
+  const [activeConfigCategory, setActiveConfigCategory] = useState<'secretaria' | 'fornecedor' | 'status' | 'entrega'>('secretaria');
   
-  // Estado do Formulário Independente
   const [formData, setFormData] = useState({
     dataRecebido: new Date().toISOString().split('T')[0],
     prefixo: '',
@@ -40,8 +44,8 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, onSaveRecord, onDele
     notaFiscal: '',
     fornecedor: '',
     responsavel: '',
-    status: 'EM ANDAMENTO',
-    entregueRelatorio: 'NÃO',
+    status: '',
+    entregueRelatorio: '',
     observacao: ''
   });
 
@@ -49,7 +53,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, onSaveRecord, onDele
     e.preventDefault();
     onSaveRecord(formData);
     setIsModalOpen(false);
-    // Limpar formulário
     setFormData({
       dataRecebido: new Date().toISOString().split('T')[0],
       prefixo: '',
@@ -66,8 +69,8 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, onSaveRecord, onDele
       notaFiscal: '',
       fornecedor: '',
       responsavel: '',
-      status: 'EM ANDAMENTO',
-      entregueRelatorio: 'NÃO',
+      status: '',
+      entregueRelatorio: '',
       observacao: ''
     });
   };
@@ -103,51 +106,77 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, onSaveRecord, onDele
     link.click();
   };
 
+  const handleAddListItem = () => {
+    if (!newItemValue.trim()) return;
+    const newItem: ReportListItem = {
+      id: crypto.randomUUID(),
+      category: activeConfigCategory,
+      value: newItemValue.trim().toUpperCase()
+    };
+    onUpdateListItems([...listItems, newItem]);
+    setNewItemValue('');
+  };
+
+  const handleRemoveListItem = (id: string) => {
+    onUpdateListItems(listItems.filter(i => i.id !== id));
+  };
+
+  const getOptionsByCategory = (cat: string) => {
+    return listItems.filter(i => i.category === cat).map(i => i.value);
+  };
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Header com Botão de Cadastro */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-2xl">
+    <div className="space-y-6 animate-in fade-in duration-500 w-full overflow-x-hidden">
+      {/* Header */}
+      <div className="bg-slate-900 p-6 md:p-10 rounded-[2.5rem] text-white shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6 mx-2">
         <div>
           <h2 className="text-3xl font-black tracking-tighter uppercase italic">Relatório de Compras</h2>
-          <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] mt-1">Gestão de Peças e Terceirizadas (Independente)</p>
+          <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] mt-1">Controle de Peças e Serviços Independentes</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          <button 
+            onClick={() => setIsConfigModalOpen(true)}
+            className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all border border-white/10"
+            title="Configurar Listas"
+          >
+            <Settings size={24} />
+          </button>
           <button 
             onClick={exportToCSV}
             className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all border border-white/10"
           >
-            <Download size={16} /> Exportar Planilha
+            <Download size={16} /> Exportar CSV
           </button>
           <button 
             onClick={() => setIsModalOpen(true)}
             className="px-6 py-4 bg-indigo-500 hover:bg-indigo-400 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-xl shadow-indigo-500/20"
           >
-            <Plus size={18} /> Cadastrar Novo Registro
+            <Plus size={18} /> Novo Lançamento
           </button>
         </div>
       </div>
 
-      {/* Barra de Pesquisa */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center gap-4">
-        <div className="relative flex-1">
+      {/* Pesquisa */}
+      <div className="mx-2 bg-white p-4 rounded-2xl border border-slate-200 flex flex-col md:flex-row items-center gap-4">
+        <div className="relative flex-1 w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input 
             type="text" 
-            placeholder="Pesquisar por Fornecedor, Prefixo, Secretaria ou Nº Orçamento..." 
+            placeholder="Filtrar planilha..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
-        <div className="hidden md:block text-[10px] font-black text-slate-400 uppercase tracking-widest">
-          {filteredRecords.length} Registros na Planilha
+        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">
+          {filteredRecords.length} REGISTROS ENCONTRADOS
         </div>
       </div>
 
-      {/* Tabela Planilha com 18 Colunas */}
-      <div className="bg-white rounded-[2rem] border border-slate-200 shadow-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[3200px]">
+      {/* Container da Planilha */}
+      <div className="mx-2 bg-white rounded-[2rem] border border-slate-200 shadow-xl overflow-hidden max-w-full">
+        <div className="overflow-x-auto w-full scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+          <table className="w-full text-left border-collapse min-w-[2800px]">
             <thead>
               <tr className="bg-slate-900 text-slate-400">
                 <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest sticky left-0 bg-slate-900 z-10 border-r border-slate-800">Ações</th>
@@ -156,12 +185,12 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, onSaveRecord, onDele
                 <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800">Secretaria</th>
                 <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800">Descrição Peças/Serv</th>
                 <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center">Nº Pedido Oficina</th>
-                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center">Oficina Próp/Terc</th>
-                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center">Data Lanç. Volus</th>
-                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center">Nº Orç. Peças (Agrup)</th>
-                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center">Nº Orç. Serv (Agrup)</th>
-                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center">Data Aprov. Volus</th>
-                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center font-white text-white">Nº Orç. Aprovado</th>
+                <th className="px-4 py-4 text-[9px) font-black uppercase tracking-widest border-r border-slate-800 text-center">Oficina Próp/Terc</th>
+                <th className="px-4 py-4 text-[9px) font-black uppercase tracking-widest border-r border-slate-800 text-center">Data Lanç. Volus</th>
+                <th className="px-4 py-4 text-[9px) font-black uppercase tracking-widest border-r border-slate-800 text-center">Nº Orç. Peças (Agrup)</th>
+                <th className="px-4 py-4 text-[9px) font-black uppercase tracking-widest border-r border-slate-800 text-center">Nº Orç. Serv (Agrup)</th>
+                <th className="px-4 py-4 text-[9px) font-black uppercase tracking-widest border-r border-slate-800 text-center">Data Aprov. Volus</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center text-white">Nº Orç. Aprovado</th>
                 <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center">Valor Total</th>
                 <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800 text-center">Nota Fiscal</th>
                 <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border-r border-slate-800">Fornecedor Aprov/Orc</th>
@@ -208,106 +237,119 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, onSaveRecord, onDele
             </tbody>
           </table>
         </div>
-        {filteredRecords.length === 0 && (
-          <div className="py-32 text-center space-y-4">
-            <FileSpreadsheet size={64} className="mx-auto text-slate-200" />
-            <p className="text-slate-400 font-black uppercase text-xs tracking-widest italic">Planilha de relatórios vazia. Clique em "Cadastrar Novo Registro".</p>
-          </div>
-        )}
       </div>
 
-      {/* Modal de Cadastro Independente */}
+      {/* Modal Lançamento */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-5xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div>
-                <h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic">Novo Lançamento na Planilha</h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Preencha os 18 campos de controle empresarial</p>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic">Novo Lançamento</h3>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="p-4 hover:bg-slate-200 rounded-2xl transition-all"><X size={28} /></button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-10 overflow-y-auto space-y-8">
-              {/* Grupo 1: Básico */}
+            <form onSubmit={handleSubmit} className="p-8 md:p-10 overflow-y-auto space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Field label="Data Recebido" type="date" value={formData.dataRecebido} onChange={v => setFormData({...formData, dataRecebido: v})} />
                 <Field label="Prefixo" value={formData.prefixo} onChange={v => setFormData({...formData, prefixo: v})} />
-                <Field label="Secretaria" value={formData.secretaria} onChange={v => setFormData({...formData, secretaria: v})} />
+                <Field label="Secretaria" type="select" options={getOptionsByCategory('secretaria')} value={formData.secretaria} onChange={v => setFormData({...formData, secretaria: v})} />
               </div>
-
-              {/* Grupo 2: Descrição */}
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Descrição Peças e Serviços</label>
-                <textarea 
-                  rows={2}
-                  className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs uppercase"
-                  placeholder="Ex: TROCA DE ÓLEO, FILTROS E MANUTENÇÃO DE FREIOS"
-                  value={formData.descricao}
-                  onChange={e => setFormData({...formData, descricao: e.target.value})}
-                />
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Descrição</label>
+                <textarea rows={2} className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs uppercase" value={formData.descricao} onChange={e => setFormData({...formData, descricao: e.target.value})} />
               </div>
-
-              {/* Grupo 3: Oficina */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Field label="Nº Pedido Oficina" value={formData.numPedidoOficina} onChange={v => setFormData({...formData, numPedidoOficina: v})} />
+                <Field label="Pedido Oficina" value={formData.numPedidoOficina} onChange={v => setFormData({...formData, numPedidoOficina: v})} />
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tipo de Oficina</label>
-                  <select 
-                    className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs"
-                    value={formData.oficinaTipo}
-                    onChange={e => setFormData({...formData, oficinaTipo: e.target.value as any})}
-                  >
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tipo</label>
+                  <select className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs" value={formData.oficinaTipo} onChange={e => setFormData({...formData, oficinaTipo: e.target.value as any})}>
                     <option value="TERCERIZADA">TERCEIRIZADA</option>
                     <option value="PROPRIA">PRÓPRIA</option>
                   </select>
                 </div>
-                <Field label="Data Lançamento Volus" type="date" value={formData.dataLancamentoVolus} onChange={v => setFormData({...formData, dataLancamentoVolus: v})} />
+                <Field label="Lanç. Volus" type="date" value={formData.dataLancamentoVolus} onChange={v => setFormData({...formData, dataLancamentoVolus: v})} />
               </div>
-
-              {/* Grupo 4: Agrupadores Volus */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-indigo-50/50 rounded-3xl border border-indigo-100">
-                <Field label="Nº Orç. Volus Peças (Agrupador)" value={formData.numOrcVolusPecas} onChange={v => setFormData({...formData, numOrcVolusPecas: v})} />
-                <Field label="Nº Orç. Volus Serv (Agrupador)" value={formData.numOrcVolusServ} onChange={v => setFormData({...formData, numOrcVolusServ: v})} />
-                <Field label="Data Aprovação Volus" type="date" value={formData.dataAprovacaoVolus} onChange={v => setFormData({...formData, dataAprovacaoVolus: v})} />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-indigo-50/50 rounded-3xl">
+                <Field label="Agrup. Peças" value={formData.numOrcVolusPecas} onChange={v => setFormData({...formData, numOrcVolusPecas: v})} />
+                <Field label="Agrup. Serv" value={formData.numOrcVolusServ} onChange={v => setFormData({...formData, numOrcVolusServ: v})} />
+                <Field label="Aprov. Volus" type="date" value={formData.dataAprovacaoVolus} onChange={v => setFormData({...formData, dataAprovacaoVolus: v})} />
               </div>
-
-              {/* Grupo 5: Aprovação e NF */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Field label="Nº Orç. Aprovado Final" value={formData.numOrcAprovado} onChange={v => setFormData({...formData, numOrcAprovado: v})} />
-                <Field label="Valor Total Aprovado (R$)" placeholder="0.000,00" value={formData.valorTotal} onChange={v => setFormData({...formData, valorTotal: v})} />
+                <Field label="Nº Aprovado" value={formData.numOrcAprovado} onChange={v => setFormData({...formData, numOrcAprovado: v})} />
+                <Field label="Valor Total" value={formData.valorTotal} onChange={v => setFormData({...formData, valorTotal: v})} />
                 <Field label="Nota Fiscal" value={formData.notaFiscal} onChange={v => setFormData({...formData, notaFiscal: v})} />
               </div>
-
-              {/* Grupo 6: Fornecedor e Responsável */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Field label="Fornecedor Aprovado / Orçamento" value={formData.fornecedor} onChange={v => setFormData({...formData, fornecedor: v})} />
-                <Field label="Responsável Lançamento Aprovação" value={formData.responsavel} onChange={v => setFormData({...formData, responsavel: v})} />
+                <Field label="Fornecedor" type="select" options={getOptionsByCategory('fornecedor')} value={formData.fornecedor} onChange={v => setFormData({...formData, fornecedor: v})} />
+                <Field label="Responsável" value={formData.responsavel} onChange={v => setFormData({...formData, responsavel: v})} />
               </div>
-
-              {/* Grupo 7: Status e Relatório */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Field label="Status Atual" value={formData.status} onChange={v => setFormData({...formData, status: v})} />
-                <Field label="Entregue Relatório" value={formData.entregueRelatorio} onChange={v => setFormData({...formData, entregueRelatorio: v})} />
+                <Field label="Status" type="select" options={getOptionsByCategory('status')} value={formData.status} onChange={v => setFormData({...formData, status: v})} />
+                <Field label="Entregue" type="select" options={getOptionsByCategory('entrega')} value={formData.entregueRelatorio} onChange={v => setFormData({...formData, entregueRelatorio: v})} />
               </div>
+              <button type="submit" className="w-full bg-slate-900 text-white font-black py-6 rounded-[2rem] uppercase text-xs tracking-widest shadow-2xl hover:bg-black transition-all">Salvar Registro</button>
+            </form>
+          </div>
+        </div>
+      )}
 
-              {/* Grupo 8: Observação */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Observação Adicional</label>
-                <textarea 
-                  rows={2}
-                  className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs uppercase"
-                  value={formData.observacao}
-                  onChange={e => setFormData({...formData, observacao: e.target.value})}
+      {/* Modal de Configuração de Listas */}
+      {isConfigModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in zoom-in duration-300">
+          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 uppercase italic">Configurar Listas</h3>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Personalize os dropdowns da planilha</p>
+              </div>
+              <button onClick={() => setIsConfigModalOpen(false)} className="p-4 hover:bg-slate-100 rounded-2xl transition-all"><X size={24} /></button>
+            </div>
+
+            <div className="flex border-b border-slate-100 bg-slate-50">
+              <ConfigTab active={activeConfigCategory === 'secretaria'} label="Secretarias" onClick={() => setActiveConfigCategory('secretaria')} />
+              <ConfigTab active={activeConfigCategory === 'fornecedor'} label="Fornecedores" onClick={() => setActiveConfigCategory('fornecedor')} />
+              <ConfigTab active={activeConfigCategory === 'status'} label="Status" onClick={() => setActiveConfigCategory('status')} />
+              <ConfigTab active={activeConfigCategory === 'entrega'} label="Entrega" onClick={() => setActiveConfigCategory('entrega')} />
+            </div>
+
+            <div className="p-8 space-y-6">
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  placeholder={`Adicionar novo em ${activeConfigCategory}...`} 
+                  className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs uppercase"
+                  value={newItemValue}
+                  onChange={(e) => setNewItemValue(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddListItem()}
                 />
-              </div>
-
-              <div className="pt-8 border-t border-slate-100">
-                <button type="submit" className="w-full bg-slate-900 text-white font-black py-6 rounded-[2rem] flex items-center justify-center gap-4 uppercase text-xs tracking-[0.3em] shadow-2xl hover:bg-black transition-all">
-                  <Save size={24} /> Salvar Registro na Planilha Independente
+                <button 
+                  onClick={handleAddListItem}
+                  className="px-6 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2"
+                >
+                  <Plus size={16} /> Add
                 </button>
               </div>
-            </form>
+
+              <div className="max-h-64 overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                {listItems.filter(i => i.category === activeConfigCategory).length === 0 && (
+                  <p className="text-center py-8 text-slate-300 font-black uppercase text-[10px] italic">Nenhum item cadastrado nesta lista</p>
+                )}
+                {listItems.filter(i => i.category === activeConfigCategory).map((item) => (
+                  <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 group">
+                    <span className="text-xs font-black text-slate-700 uppercase">{item.value}</span>
+                    <button onClick={() => handleRemoveListItem(item.id)} className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-8 bg-slate-50 border-t border-slate-100">
+              <button onClick={() => setIsConfigModalOpen(false)} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest">Fechar e Salvar</button>
+            </div>
           </div>
         </div>
       )}
@@ -315,17 +357,31 @@ const ReportsView: React.FC<ReportsViewProps> = ({ records, onSaveRecord, onDele
   );
 };
 
-const Field = ({ label, type = "text", value, onChange, placeholder = "" }: any) => (
+const Field = ({ label, type = "text", value, onChange, options = [] }: any) => (
   <div className="space-y-2">
     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{label}</label>
-    <input 
-      type={type}
-      placeholder={placeholder}
-      className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs uppercase"
-      value={value}
-      onChange={e => onChange(e.target.value)}
-    />
+    {type === 'select' ? (
+      <select 
+        className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs uppercase"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+      >
+        <option value="">SELECIONE...</option>
+        {options.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
+      </select>
+    ) : (
+      <input type={type} className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs uppercase" value={value} onChange={e => onChange(e.target.value)} />
+    )}
   </div>
+);
+
+const ConfigTab = ({ active, label, onClick }: any) => (
+  <button 
+    onClick={onClick}
+    className={`flex-1 py-4 text-[9px] font-black uppercase tracking-widest transition-all border-b-2 ${active ? 'text-indigo-600 border-indigo-600 bg-white' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
+  >
+    {label}
+  </button>
 );
 
 export default ReportsView;
