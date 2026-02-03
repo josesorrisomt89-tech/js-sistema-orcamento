@@ -126,16 +126,12 @@ const App: React.FC = () => {
   };
 
   const handleSaveQuotes = async (newQuotes: Quote[]) => {
-    // Primeiro atualiza o estado local para feedback imediato
     setQuotes(prev => [...newQuotes, ...prev]);
-
     if (isDemoMode) {
       localStorage.setItem('demo_quotes_v2', JSON.stringify([...newQuotes, ...quotes]));
       return;
     }
-
     if (!session?.user || !isSupabaseConfigured) return;
-    
     const quotesToInsert = newQuotes.map(q => ({
       user_id: session.user.id,
       type: q.type,
@@ -148,15 +144,53 @@ const App: React.FC = () => {
       files: q.files,
       observations: q.observations
     }));
-
     const { error } = await supabase.from('quotes').insert(quotesToInsert);
-    if (!error) {
-      // Re-busca para garantir IDs sincronizados do Supabase
-      fetchData();
-    }
+    if (!error) fetchData();
   };
 
-  // ... (resto do componente se mantém igual)
+  const handleAddSupplier = async (newSupplier: Omit<Supplier, 'id'>) => {
+    if (isDemoMode) {
+      const supplier: Supplier = { ...newSupplier, id: crypto.randomUUID() };
+      const updated = [...suppliers, supplier];
+      setSuppliers(updated);
+      localStorage.setItem('demo_suppliers', JSON.stringify(updated));
+      return;
+    }
+    if (!session?.user || !isSupabaseConfigured) return;
+    const { data, error } = await supabase.from('suppliers').insert({
+      user_id: session.user.id,
+      name: newSupplier.name,
+      phone: newSupplier.phone
+    }).select().single();
+    if (!error && data) setSuppliers(prev => [...prev, data as Supplier]);
+  };
+
+  const handleUpdateSupplier = async (updatedSupplier: Supplier) => {
+    if (isDemoMode) {
+      const updated = suppliers.map(s => s.id === updatedSupplier.id ? updatedSupplier : s);
+      setSuppliers(updated);
+      localStorage.setItem('demo_suppliers', JSON.stringify(updated));
+      return;
+    }
+    const { error } = await supabase.from('suppliers').update({
+      name: updatedSupplier.name,
+      phone: updatedSupplier.phone
+    }).eq('id', updatedSupplier.id);
+    if (!error) setSuppliers(prev => prev.map(s => s.id === updatedSupplier.id ? updatedSupplier : s));
+  };
+
+  const handleDeleteSupplier = async (id: string) => {
+    if (!confirm("Remover este fornecedor permanentemente?")) return;
+    if (isDemoMode) {
+      const updated = suppliers.filter(s => s.id !== id);
+      setSuppliers(updated);
+      localStorage.setItem('demo_suppliers', JSON.stringify(updated));
+      return;
+    }
+    const { error } = await supabase.from('suppliers').delete().eq('id', id);
+    if (!error) setSuppliers(prev => prev.filter(s => s.id !== id));
+  };
+
   const handleSaveReportRecord = async (newRecord: Omit<ReportRecord, 'id' | 'createdAt'>) => {
     if (isDemoMode) {
       const record: ReportRecord = { ...newRecord, id: crypto.randomUUID(), createdAt: Date.now() };
@@ -192,59 +226,46 @@ const App: React.FC = () => {
       return true;
     }
     if (!session?.user || !isSupabaseConfigured) return false;
-    
     try {
-      const { error: delError } = await supabase.from('report_list_items').delete().eq('user_id', session.user.id);
-      if (delError) throw delError;
-
-      if (items.length === 0) {
-        setReportListItems([]);
-        return true;
+      await supabase.from('report_list_items').delete().eq('user_id', session.user.id);
+      if (items.length > 0) {
+        await supabase.from('report_list_items').insert(
+          items.map(i => ({ 
+            user_id: session.user.id, 
+            category: i.category, 
+            value: i.value.toUpperCase().trim() 
+          }))
+        );
       }
-
-      const { error: insError } = await supabase.from('report_list_items').insert(
-        items.map(i => ({ 
-          user_id: session.user.id, 
-          category: i.category, 
-          value: i.value.toUpperCase().trim() 
-        }))
-      );
-      
-      if (!insError) {
-        await fetchData();
-        return true;
-      }
-      return false;
+      await fetchData();
+      return true;
     } catch (err) {
-      console.error("Critical error updating report lists:", err);
       return false;
     }
   };
 
   const handleDeleteReportRecord = async (id: string) => {
-    if (confirm("Remover este registro da planilha permanentemente?")) {
-      if (isDemoMode) {
-        const updated = reportRecords.filter(r => r.id !== id);
-        setReportRecords(updated);
-        localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
-        return;
-      }
-      const { error } = await supabase.from('report_records').delete().eq('id', id);
-      if (!error) fetchData();
+    if (!confirm("Remover este registro da planilha?")) return;
+    if (isDemoMode) {
+      const updated = reportRecords.filter(r => r.id !== id);
+      setReportRecords(updated);
+      localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
+      return;
     }
+    const { error } = await supabase.from('report_records').delete().eq('id', id);
+    if (!error) fetchData();
   };
 
   const handleDeleteQuote = async (id: string) => {
-    if (confirm("Remover do histórico de mensagens permanentemente?")) {
-      if (isDemoMode) {
-        const updated = quotes.filter(q => q.id !== id);
-        setQuotes(updated);
-        localStorage.setItem('demo_quotes_v2', JSON.stringify(updated));
-        return;
-      }
-      const { error } = await supabase.from('quotes').delete().eq('id', id);
-      if (!error) setQuotes(prev => prev.filter(q => q.id !== id));
+    if (!confirm("Remover do histórico?")) return;
+    if (isDemoMode) {
+      const updated = quotes.filter(q => q.id !== id);
+      setQuotes(updated);
+      localStorage.setItem('demo_quotes_v2', JSON.stringify(updated));
+      return;
     }
+    const { error } = await supabase.from('quotes').delete().eq('id', id);
+    if (!error) setQuotes(prev => prev.filter(q => q.id !== id));
   };
 
   const handleUpdateQuote = async (updatedQuote: Quote) => {
@@ -270,9 +291,7 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-white rounded-[2.5rem] p-8 shadow-2xl text-center space-y-6">
-          <div className="w-20 h-20 bg-amber-100 rounded-3xl flex items-center justify-center mx-auto text-amber-600">
-            <AlertTriangle size={40} />
-          </div>
+          <div className="w-20 h-20 bg-amber-100 rounded-3xl flex items-center justify-center mx-auto text-amber-600"><AlertTriangle size={40} /></div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Configuração</h1>
           <p className="text-slate-500 font-medium">Configure o Supabase para ativar a Nuvem.</p>
           <button onClick={() => setIsDemoMode(true)} className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-indigo-200 uppercase tracking-widest text-xs">Entrar em Modo Teste Local</button>
@@ -355,7 +374,14 @@ const App: React.FC = () => {
               onUpdateListItems={handleUpdateReportListItems}
             />
           ) : activeView === 'settings' ? (
-            <div className="max-w-7xl mx-auto"><SettingsView suppliers={suppliers} onAddSupplier={async s => {}} onUpdateSupplier={async s => {}} onDeleteSupplier={async id => {}} /></div>
+            <div className="max-w-7xl mx-auto">
+              <SettingsView 
+                suppliers={suppliers} 
+                onAddSupplier={handleAddSupplier} 
+                onUpdateSupplier={handleUpdateSupplier} 
+                onDeleteSupplier={handleDeleteSupplier} 
+              />
+            </div>
           ) : (
              <div className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest">Aguardando dados...</div>
           )}
