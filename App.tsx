@@ -23,7 +23,6 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<'dashboard' | 'history' | 'reports' | 'settings' | 'system'>('dashboard');
   const [isDemoMode, setIsDemoMode] = useState(false);
   
-  // Configurações Dinâmicas de Marca
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
     name: "MECÂNICA VOLUS",
     subtitle: "SISTEMA INTEGRADO DE ORÇAMENTOS",
@@ -54,7 +53,6 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Carregar configurações do localStorage no início
     const savedBrand = localStorage.getItem('system_brand_v1');
     if (savedBrand) {
       setSystemSettings(JSON.parse(savedBrand));
@@ -143,9 +141,7 @@ const App: React.FC = () => {
     
     if (isSupabaseConfigured && session?.user && !isDemoMode) {
       try {
-        // Tentar atualizar ou inserir as configurações
         const { data: existing } = await supabase.from('system_settings').select('id').limit(1).single();
-        
         if (existing) {
           await supabase.from('system_settings').update(newSettings).eq('id', existing.id);
         } else {
@@ -347,7 +343,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex overflow-x-hidden font-sans">
-      {/* Sidebar Personalizada */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-950 text-slate-300 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-full flex flex-col p-6">
           <div className="flex flex-col items-center mb-10 pb-6 border-b border-white/5">
