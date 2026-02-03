@@ -9,7 +9,8 @@ import SettingsView from './components/SettingsView';
 import HistoryView from './components/HistoryView';
 import ReportsView from './components/ReportsView';
 import SystemSettingsView from './components/SystemSettingsView';
-import { Layout, Notebook, Settings, Bell, Search, History, Menu, X, LogOut, Loader2, AlertTriangle, ArrowRight, FileSpreadsheet, Monitor } from 'lucide-react';
+import ProtocolView from './components/ProtocolView';
+import { Layout, Notebook, Settings, Bell, Search, History, Menu, X, LogOut, Loader2, AlertTriangle, ArrowRight, FileSpreadsheet, Monitor, ClipboardCheck } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 
 const App: React.FC = () => {
@@ -20,7 +21,7 @@ const App: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeView, setActiveView] = useState<'dashboard' | 'history' | 'reports' | 'settings' | 'system'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'history' | 'reports' | 'settings' | 'system' | 'protocol'>('dashboard');
   const [isDemoMode, setIsDemoMode] = useState(false);
   
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
@@ -31,6 +32,11 @@ const App: React.FC = () => {
   });
   
   const formRef = useRef<HTMLDivElement>(null);
+
+  // Calcula quantos itens estão aguardando protocolo
+  const protocolPendingCount = reportRecords.filter(r => 
+    ['SIM - AGUARD. PROTOCOLO', 'ENTREGUE PEÇAS PROTOCOLO', 'ENTREGUE SERVIÇO PROTOCOLO'].includes(r.entregueRelatorio?.toUpperCase())
+  ).length;
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -72,9 +78,10 @@ const App: React.FC = () => {
         setReportListItems(JSON.parse(savedListItems));
       } else {
         const defaults: ReportListItem[] = [
-          { id: 'd1', category: 'entrega', value: 'SIM-ENTREGUE' },
-          { id: 'd2', category: 'entrega', value: 'NAO' },
-          { id: 'd3', category: 'entrega', value: 'RECEBIDO' },
+          { id: 'd1', category: 'entrega', value: 'SIM - AGUARD. PROTOCOLO' },
+          { id: 'd2', category: 'entrega', value: 'ENTREGUE PEÇAS PROTOCOLO' },
+          { id: 'd3', category: 'entrega', value: 'ENTREGUE SERVIÇO PROTOCOLO' },
+          { id: 'd4', category: 'entrega', value: 'RECEBIDO - PROTOCOLADO' },
         ];
         setReportListItems(defaults);
       }
@@ -247,6 +254,18 @@ const App: React.FC = () => {
     if (!error) fetchData();
   };
 
+  const handleConfirmProtocol = async (id: string) => {
+    if (isDemoMode) {
+      const updated = reportRecords.map(r => r.id === id ? { ...r, entregueRelatorio: 'RECEBIDO - PROTOCOLADO' } : r);
+      setReportRecords(updated);
+      localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
+      return;
+    }
+    if (!session?.user || !isSupabaseConfigured) return;
+    const { error } = await supabase.from('report_records').update({ entregueRelatorio: 'RECEBIDO - PROTOCOLADO' }).eq('id', id);
+    if (!error) fetchData();
+  };
+
   const handleUpdateReportListItems = async (items: ReportListItem[]) => {
     if (isDemoMode) {
       setReportListItems(items);
@@ -365,6 +384,14 @@ const App: React.FC = () => {
             <NavItem icon={<Layout size={20} />} label="Dashboard" active={activeView === 'dashboard'} color={systemSettings.primaryColor} onClick={() => { setActiveView('dashboard'); setIsSidebarOpen(false); }} />
             <NavItem icon={<History size={20} />} label="Histórico" active={activeView === 'history'} color={systemSettings.primaryColor} onClick={() => { setActiveView('history'); setIsSidebarOpen(false); }} />
             <NavItem icon={<FileSpreadsheet size={20} />} label="Relatórios" active={activeView === 'reports'} color={systemSettings.primaryColor} onClick={() => { setActiveView('reports'); setIsSidebarOpen(false); }} />
+            <NavItem 
+              icon={<ClipboardCheck size={20} />} 
+              label="Protocolo" 
+              active={activeView === 'protocol'} 
+              color={systemSettings.primaryColor} 
+              badge={protocolPendingCount > 0 ? protocolPendingCount : undefined}
+              onClick={() => { setActiveView('protocol'); setIsSidebarOpen(false); }} 
+            />
             <NavItem icon={<Settings size={20} />} label="Fornecedores" active={activeView === 'settings'} color={systemSettings.primaryColor} onClick={() => { setActiveView('settings'); setIsSidebarOpen(false); }} />
             <NavItem icon={<Monitor size={20} />} label="Sistema" active={activeView === 'system'} color={systemSettings.primaryColor} onClick={() => { setActiveView('system'); setIsSidebarOpen(false); }} />
           </nav>
@@ -426,6 +453,11 @@ const App: React.FC = () => {
               onDeleteRecord={handleDeleteReportRecord} 
               onUpdateListItems={handleUpdateReportListItems}
             />
+          ) : activeView === 'protocol' ? (
+            <ProtocolView 
+              records={reportRecords}
+              onConfirm={handleConfirmProtocol}
+            />
           ) : activeView === 'settings' ? (
             <div className="max-w-7xl mx-auto">
               <SettingsView 
@@ -449,9 +481,15 @@ const App: React.FC = () => {
   );
 };
 
-const NavItem = ({ icon, label, active, onClick, color }: any) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${active ? `bg-${color} text-white shadow-xl shadow-${color}/30 translate-x-1` : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}>
-    {icon} <span>{label}</span>
+const NavItem = ({ icon, label, active, onClick, color, badge }: any) => (
+  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all relative ${active ? `bg-${color} text-white shadow-xl shadow-${color}/30 translate-x-1` : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}>
+    {icon} 
+    <span className="flex-1 text-left">{label}</span>
+    {badge && (
+      <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-lg">
+        {badge}
+      </span>
+    )}
   </button>
 );
 
