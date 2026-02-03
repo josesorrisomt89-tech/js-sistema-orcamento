@@ -109,7 +109,6 @@ const App: React.FC = () => {
       if (listsRes.data && listsRes.data.length > 0) {
         setReportListItems(listsRes.data as ReportListItem[]);
       } else {
-        // Opções padrão caso o usuário não tenha nada cadastrado ainda
         const defaults: ReportListItem[] = [
           { id: 'd1', category: 'entrega', value: 'SIM-ENTREGUE' },
           { id: 'd2', category: 'entrega', value: 'NAO' },
@@ -166,6 +165,18 @@ const App: React.FC = () => {
     if (!error) fetchData();
   };
 
+  const handleUpdateReportRecord = async (id: string, updatedFields: Omit<ReportRecord, 'id' | 'createdAt'>) => {
+    if (isDemoMode) {
+      const updated = reportRecords.map(r => r.id === id ? { ...r, ...updatedFields } : r);
+      setReportRecords(updated);
+      localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
+      return;
+    }
+    if (!session?.user || !isSupabaseConfigured) return;
+    const { error } = await supabase.from('report_records').update(updatedFields).eq('id', id);
+    if (!error) fetchData();
+  };
+
   const handleUpdateReportListItems = async (items: ReportListItem[]) => {
     if (isDemoMode) {
       setReportListItems(items);
@@ -175,18 +186,14 @@ const App: React.FC = () => {
     if (!session?.user || !isSupabaseConfigured) return false;
     
     try {
-      // Deletar itens antigos primeiro para evitar duplicatas ou lixo
       const { error: delError } = await supabase.from('report_list_items').delete().eq('user_id', session.user.id);
-      
       if (delError) throw delError;
 
-      // Se a lista estiver vazia, não precisamos inserir nada
       if (items.length === 0) {
         setReportListItems([]);
         return true;
       }
 
-      // Inserir os novos itens
       const { error: insError } = await supabase.from('report_list_items').insert(
         items.map(i => ({ 
           user_id: session.user.id, 
@@ -334,7 +341,8 @@ const App: React.FC = () => {
             <ReportsView 
               records={reportRecords} 
               listItems={reportListItems}
-              onSaveRecord={handleSaveReportRecord} 
+              onSaveRecord={handleSaveReportRecord}
+              onUpdateRecord={handleUpdateReportRecord}
               onDeleteRecord={handleDeleteReportRecord} 
               onUpdateListItems={handleUpdateReportListItems}
             />
