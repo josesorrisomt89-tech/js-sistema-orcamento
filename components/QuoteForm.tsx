@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Send, Trash2, Loader2, Plus, Users, User, Image as ImageIcon, CheckCircle } from 'lucide-react';
-import { QuoteType, Quote, BatchItem, Supplier } from '../types';
+import { Camera, Send, Trash2, Loader2, Plus, Users, User, Image as ImageIcon, CheckCircle, FileText, Paperclip, X } from 'lucide-react';
+import { QuoteType, Quote, BatchItem, Supplier, AttachedFile } from '../types';
 import CameraModal from './CameraModal';
 import { formatQuoteMessage } from '../services/geminiService';
 
@@ -10,7 +10,7 @@ interface QuoteFormProps {
   suppliers?: Supplier[];
 }
 
-const DRAFT_KEY = 'quoteflow_draft';
+const DRAFT_KEY = 'quoteflow_draft_v2';
 
 const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
   const [type, setType] = useState<QuoteType>(QuoteType.REQUEST);
@@ -25,14 +25,15 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
   ]);
 
   const [photo, setPhoto] = useState<string | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [observations, setObservations] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showDraftSaved, setShowDraftSaved] = useState(false);
   
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
 
-  // Carregar rascunho ao iniciar
   useEffect(() => {
     const saved = localStorage.getItem(DRAFT_KEY);
     if (saved) {
@@ -41,19 +42,19 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
         setSingleSupplier(parsed.singleSupplier || singleSupplier);
         setObservations(parsed.observations || '');
         setPhoto(parsed.photo || null);
+        setAttachedFiles(parsed.attachedFiles || []);
         setIsMultiMode(parsed.isMultiMode || false);
       } catch (e) { console.error("Erro ao carregar rascunho", e); }
     }
   }, []);
 
-  // Salvar rascunho ao mudar qualquer dado
   useEffect(() => {
-    const draft = { singleSupplier, observations, photo, isMultiMode };
+    const draft = { singleSupplier, observations, photo, attachedFiles, isMultiMode };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     setShowDraftSaved(true);
     const timer = setTimeout(() => setShowDraftSaved(false), 2000);
     return () => clearTimeout(timer);
-  }, [singleSupplier, observations, photo, isMultiMode]);
+  }, [singleSupplier, observations, photo, attachedFiles, isMultiMode]);
 
   const addBatchItem = () => {
     setBatchItems([...batchItems, { id: crypto.randomUUID(), supplierName: '', supplierPhone: '', prefix: '', quoteNumberParts: '', quoteNumberServices: '' }]);
@@ -77,31 +78,44 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhoto(reader.result as string);
-      };
+      reader.onloadend = () => setPhoto(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
 
-  const triggerFilePicker = () => {
-    fileInputRef.current?.click();
+  const handleDocChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      // Fix: Explicitly type 'file' as File to resolve 'unknown' property access errors reported on lines 97, 99, 102
+      Array.from(files).forEach((file: File) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setAttachedFiles(prev => [...prev, {
+            name: file.name,
+            data: reader.result as string,
+            type: file.type
+          }]);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
   };
 
-  const base64ToFile = (base64String: string, fileName: string): File => {
+  const removeFile = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const base64ToFile = (base64String: string, fileName: string, type: string): File => {
     const arr = base64String.split(',');
-    const mime = arr[0].match(/:(.*?);/)![1];
     const bstr = atob(arr[1]);
     let n = bstr.length;
     const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new File([u8arr], fileName, { type: mime });
+    while (n--) u8arr[n] = bstr.charCodeAt(n);
+    return new File([u8arr], fileName, { type });
   };
 
   const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -119,8 +133,8 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
       }
     ];
     
-    if (itemsToProcess.some(i => !i.supplierName || !i.supplierPhone) || !observations || !photo) {
-      alert("⚠️ Preencha fornecedor, telefone, observações e tire a FOTO antes de enviar.");
+    if (itemsToProcess.some(i => !i.supplierName || !i.supplierPhone) || !observations || (!photo && attachedFiles.length === 0)) {
+      alert("⚠️ Preencha os dados e anexe pelo menos uma FOTO ou um ARQUIVO.");
       return;
     }
 
@@ -132,7 +146,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
         generatedQuotes.push({
           id: crypto.randomUUID(), type, supplierName: item.supplierName, supplierPhone: item.supplierPhone,
           prefix: item.prefix, quoteNumberParts: item.quoteNumberParts, quoteNumberServices: item.quoteNumberServices,
-          photo, observations: polishedMessage, createdAt: Date.now()
+          photo, files: attachedFiles, observations: polishedMessage, createdAt: Date.now()
         });
       }
       
@@ -143,39 +157,35 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
         const cleanPhone = q.supplierPhone.replace(/\D/g, '');
         const encodedText = encodeURIComponent(q.observations);
         
-        // LÓGICA DE ENVIO MOBILE (FOTO + TEXTO)
-        if (isMobile() && navigator.canShare && q.photo) {
-          const imageFile = base64ToFile(q.photo, `volus-${Date.now()}.jpg`);
-          const shareData = {
-            files: [imageFile],
-            text: q.observations
-          };
+        if (isMobile() && (navigator as any).share) {
+          const filesToShare: File[] = [];
+          if (q.photo) filesToShare.push(base64ToFile(q.photo, 'foto-peca.jpg', 'image/jpeg'));
+          q.files?.forEach(f => filesToShare.push(base64ToFile(f.data, f.name, f.type)));
 
-          if (navigator.canShare(shareData)) {
+          const shareData: any = { text: q.observations, files: filesToShare };
+          
+          if ((navigator as any).canShare && (navigator as any).canShare(shareData)) {
             try {
-              await navigator.share(shareData);
-            } catch (shareErr) {
-              // Fallback para link simples se o usuário cancelar ou falhar
+              await (navigator as any).share(shareData);
+            } catch (err) {
               window.open(`https://wa.me/55${cleanPhone}?text=${encodedText}`, '_blank');
             }
           } else {
             window.open(`https://wa.me/55${cleanPhone}?text=${encodedText}`, '_blank');
           }
         } else {
-          // DESKTOP: Link direto
           window.open(`https://wa.me/55${cleanPhone}?text=${encodedText}`, '_blank');
         }
       }
 
-      // Limpar formulário e rascunho após sucesso
       setSingleSupplier({ name: '', phone: '', prefix: '', quoteNumberParts: '', quoteNumberServices: '' });
       setPhoto(null);
+      setAttachedFiles([]);
       setObservations('');
       localStorage.removeItem(DRAFT_KEY);
-      alert("Sucesso! O WhatsApp abrirá agora.");
     } catch (error) {
       console.error(error);
-      alert("Houve um erro ao processar. Tente novamente.");
+      alert("Houve um erro ao processar.");
     } finally {
       setIsProcessing(false);
     }
@@ -184,15 +194,12 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
   return (
     <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 p-4 md:p-8">
       <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8">
-        
-        {/* Indicador de Rascunho */}
         <div className="flex justify-end -mb-4">
           <span className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-widest transition-opacity ${showDraftSaved ? 'opacity-100 text-emerald-500' : 'opacity-0'}`}>
-            <CheckCircle size={10} /> Rascunho Salvo
+            <CheckCircle size={10} /> Rascunho Atualizado
           </span>
         </div>
 
-        {/* Toggle Modo */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Ação</label>
@@ -210,13 +217,12 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
           </div>
         </div>
 
-        {/* Dados Fornecedor */}
         <div className="space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">FORNECEDOR</h3>
             {suppliers.length > 0 && (
               <select onChange={handleSelectSupplierSingle} className="text-[11px] font-bold text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-500">
-                <option value="" disabled selected>Escolher Contato Salvo...</option>
+                <option value="" disabled selected>Contatos Salvos...</option>
                 {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             )}
@@ -241,51 +247,74 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
                     <input type="text" placeholder="Peças" value={item.quoteNumberParts} onChange={e => updateBatchItem(item.id, 'quoteNumberParts', e.target.value)} className="px-4 py-3 text-sm rounded-xl border border-slate-300 font-bold" />
                     <input type="text" placeholder="Serv" value={item.quoteNumberServices} onChange={e => updateBatchItem(item.id, 'quoteNumberServices', e.target.value)} className="px-4 py-3 text-sm rounded-xl border border-slate-300 font-bold" />
                   </div>
-                  <button type="button" disabled={batchItems.length === 1} onClick={() => removeBatchItem(item.id)} className="absolute top-2 right-2 p-2 text-rose-400"><Trash2 size={18} /></button>
+                  <button type="button" onClick={() => removeBatchItem(item.id)} className="absolute top-2 right-2 p-2 text-rose-400"><Trash2 size={18} /></button>
                 </div>
               ))}
-              <button type="button" onClick={addBatchItem} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-black uppercase text-[10px] tracking-widest"><Plus size={16} /> ADICIONAR FORNECEDOR AO LOTE</button>
+              <button type="button" onClick={addBatchItem} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-black uppercase text-[10px] tracking-widest"><Plus size={16} /> ADICIONAR AO LOTE</button>
             </div>
           )}
         </div>
 
-        {/* Fotos e Observações */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-          <div className="md:col-span-5 space-y-3">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block">FOTO DA PEÇA OU DOCUMENTO</label>
-            <div className="relative aspect-video">
-              {photo ? (
-                <div className="relative w-full h-full rounded-2xl overflow-hidden border border-slate-200 shadow-md">
-                  <img src={photo} alt="Doc" className="w-full h-full object-cover" />
-                  <button type="button" onClick={() => setPhoto(null)} className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white gap-2 font-black uppercase text-xs tracking-widest opacity-0 hover:opacity-100 transition-opacity">
-                    <Trash2 size={32} /> Remover Foto
-                  </button>
-                </div>
-              ) : (
-                <div className="w-full h-full rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-around bg-slate-50 p-4">
-                    <button type="button" onClick={() => setIsCameraOpen(true)} className="flex flex-col items-center gap-2 text-slate-500 hover:text-indigo-600">
-                      <div className="w-16 h-16 bg-white rounded-2xl shadow-lg border border-slate-100 flex items-center justify-center"><Camera size={32} /></div>
-                      <span className="text-[9px] font-black uppercase tracking-widest">USAR CÂMERA</span>
+          <div className="md:col-span-5 space-y-4">
+            <div>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block mb-2">FOTO DA PEÇA</label>
+              <div className="relative aspect-video">
+                {photo ? (
+                  <div className="relative w-full h-full rounded-2xl overflow-hidden border border-slate-200 shadow-md">
+                    <img src={photo} alt="Doc" className="w-full h-full object-cover" />
+                    <button type="button" onClick={() => setPhoto(null)} className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white gap-2 font-black uppercase text-xs tracking-widest opacity-0 hover:opacity-100 transition-opacity">
+                      <Trash2 size={32} /> Remover Foto
                     </button>
-                    <div className="w-[1px] h-12 bg-slate-200"></div>
-                    <button type="button" onClick={triggerFilePicker} className="flex flex-col items-center gap-2 text-slate-500 hover:text-indigo-600">
-                      <div className="w-16 h-16 bg-white rounded-2xl shadow-lg border border-slate-100 flex items-center justify-center"><ImageIcon size={32} /></div>
-                      <span className="text-[9px] font-black uppercase tracking-widest">GALERIA</span>
-                    </button>
+                  </div>
+                ) : (
+                  <div className="w-full h-full rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-around bg-slate-50 p-4">
+                      <button type="button" onClick={() => setIsCameraOpen(true)} className="flex flex-col items-center gap-2 text-slate-500 hover:text-indigo-600">
+                        <div className="w-14 h-14 bg-white rounded-2xl shadow-lg border border-slate-100 flex items-center justify-center"><Camera size={28} /></div>
+                        <span className="text-[9px] font-black uppercase tracking-widest">CÂMERA</span>
+                      </button>
+                      <button type="button" onClick={() => photoInputRef.current?.click()} className="flex flex-col items-center gap-2 text-slate-500 hover:text-indigo-600">
+                        <div className="w-14 h-14 bg-white rounded-2xl shadow-lg border border-slate-100 flex items-center justify-center"><ImageIcon size={28} /></div>
+                        <span className="text-[9px] font-black uppercase tracking-widest">GALERIA</span>
+                      </button>
+                  </div>
+                )}
+                <input type="file" ref={photoInputRef} onChange={handlePhotoChange} className="hidden" accept="image/*" capture="environment" />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block mb-2">ARQUIVOS / PDF (OPCIONAL)</label>
+              <div className="space-y-2">
+                <button type="button" onClick={() => docInputRef.current?.click()} className="w-full py-4 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center gap-3 text-slate-400 hover:text-indigo-600 transition-all">
+                  <Paperclip size={20} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">ANEXAR PDF / DOC</span>
+                </button>
+                <input type="file" ref={docInputRef} onChange={handleDocChange} className="hidden" multiple accept=".pdf,.doc,.docx,.xls,.xlsx" />
+                
+                <div className="grid grid-cols-1 gap-2">
+                  {attachedFiles.map((f, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <FileText size={18} className="text-indigo-600 flex-shrink-0" />
+                        <span className="text-xs font-bold text-indigo-900 truncate">{f.name}</span>
+                      </div>
+                      <button type="button" onClick={() => removeFile(i)} className="p-1 text-indigo-300 hover:text-rose-500"><X size={16}/></button>
+                    </div>
+                  ))}
                 </div>
-              )}
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" capture="environment" />
+              </div>
             </div>
           </div>
+
           <div className="md:col-span-7 flex flex-col space-y-3">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block">LISTA DE PEÇAS / OBSERVAÇÕES</label>
-            <textarea required rows={6} placeholder="O que tem na foto? Liste aqui as peças ou detalhes..." value={observations} onChange={e => setObservations(e.target.value)} className="flex-1 w-full px-5 py-4 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none shadow-inner font-black uppercase text-xs leading-relaxed text-slate-700" />
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block">OBSERVAÇÕES DO ORÇAMENTO</label>
+            <textarea required rows={10} placeholder="Detalhe as peças solicitadas or o diagnóstico..." value={observations} onChange={e => setObservations(e.target.value)} className="flex-1 w-full px-5 py-4 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none shadow-inner font-black uppercase text-xs leading-relaxed text-slate-700" />
           </div>
         </div>
 
-        {/* Botão de Envio */}
-        <button type="submit" disabled={isProcessing} className="w-full bg-slate-900 hover:bg-black disabled:bg-slate-300 text-white font-black py-5 px-6 rounded-2xl shadow-2xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] text-lg uppercase tracking-widest">
-          {isProcessing ? <><Loader2 className="animate-spin" size={24} /><span>GERANDO...</span></> : <><Send size={24} /><span>ENVIAR PARA WHATSAPP</span></>}
+        <button type="submit" disabled={isProcessing} className="w-full bg-slate-900 hover:bg-black disabled:bg-slate-300 text-white font-black py-5 px-6 rounded-2xl shadow-2xl flex items-center justify-center gap-3 transition-all active:scale-95 text-lg uppercase tracking-widest">
+          {isProcessing ? <><Loader2 className="animate-spin" size={24} /><span>GERANDO...</span></> : <><Send size={24} /><span>ENVIAR TUDO NO WHATSAPP</span></>}
         </button>
       </form>
       {isCameraOpen && <CameraModal onCapture={img => { setPhoto(img); setIsCameraOpen(false); }} onClose={() => setIsCameraOpen(false)} />}
