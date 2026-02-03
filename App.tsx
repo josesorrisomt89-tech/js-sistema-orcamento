@@ -11,22 +11,6 @@ import ReportsView from './components/ReportsView';
 import { Layout, Notebook, Settings, Bell, Search, History, Menu, X, LogOut, Loader2, AlertTriangle, ArrowRight, FileSpreadsheet } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 
-/* 
-  COMANDO SQL PARA CRIAR A TABELA NO SUPABASE (Execute no SQL Editor):
-  
-  create table report_list_items (
-    id uuid default uuid_generate_v4() primary key,
-    user_id uuid references auth.users not null,
-    category text not null, -- 'secretaria', 'fornecedor', 'status', 'entrega'
-    value text not null,
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null
-  );
-
-  alter table report_list_items enable row level security;
-  create policy "Users can manage their own list items" on report_list_items
-    for all using (auth.uid() = user_id);
-*/
-
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -124,14 +108,16 @@ const App: React.FC = () => {
 
       if (listsRes.data && listsRes.data.length > 0) {
         setReportListItems(listsRes.data as ReportListItem[]);
-      } else if (listsRes.data && listsRes.data.length === 0) {
-        // Inicializar com opções padrão caso esteja vazio
+      } else {
+        // Opções padrão caso o usuário não tenha nada cadastrado ainda
         const defaults: ReportListItem[] = [
           { id: 'd1', category: 'entrega', value: 'SIM-ENTREGUE' },
           { id: 'd2', category: 'entrega', value: 'NAO' },
           { id: 'd3', category: 'entrega', value: 'RECEBIDO' },
         ];
-        setReportListItems(defaults);
+        if (listsRes.data && listsRes.data.length === 0) {
+            setReportListItems(defaults);
+        }
       }
     } catch (e) {
       console.error("Error fetching data:", e);
@@ -184,16 +170,24 @@ const App: React.FC = () => {
     if (isDemoMode) {
       setReportListItems(items);
       localStorage.setItem('demo_report_lists', JSON.stringify(items));
-      return;
+      return true;
     }
-    if (!session?.user || !isSupabaseConfigured) return;
+    if (!session?.user || !isSupabaseConfigured) return false;
     
     try {
-      // Deletar itens antigos do usuário
-      await supabase.from('report_list_items').delete().eq('user_id', session.user.id);
+      // Deletar itens antigos primeiro para evitar duplicatas ou lixo
+      const { error: delError } = await supabase.from('report_list_items').delete().eq('user_id', session.user.id);
       
-      // Inserir novos itens
-      const { error } = await supabase.from('report_list_items').insert(
+      if (delError) throw delError;
+
+      // Se a lista estiver vazia, não precisamos inserir nada
+      if (items.length === 0) {
+        setReportListItems([]);
+        return true;
+      }
+
+      // Inserir os novos itens
+      const { error: insError } = await supabase.from('report_list_items').insert(
         items.map(i => ({ 
           user_id: session.user.id, 
           category: i.category, 
@@ -201,13 +195,13 @@ const App: React.FC = () => {
         }))
       );
       
-      if (!error) {
+      if (!insError) {
         await fetchData();
         return true;
       }
       return false;
     } catch (err) {
-      console.error("Error updating list items:", err);
+      console.error("Critical error updating report lists:", err);
       return false;
     }
   };
@@ -277,7 +271,10 @@ const App: React.FC = () => {
   if (loading && quotes.length === 0) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <Loader2 className="animate-spin text-indigo-500" size={48} />
+        <div className="flex flex-col items-center gap-4">
+            <Loader2 className="animate-spin text-indigo-500" size={48} />
+            <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest">Sincronizando Dados...</p>
+        </div>
       </div>
     );
   }
