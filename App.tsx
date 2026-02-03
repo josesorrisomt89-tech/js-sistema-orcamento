@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Quote, QuoteType, Supplier, ReportRecord } from './types';
+import { Quote, QuoteType, Supplier, ReportRecord, ReportListItem } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { Auth } from './components/Auth';
 import QuoteForm from './components/QuoteForm';
@@ -14,11 +14,11 @@ import { Session } from '@supabase/supabase-js';
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [reportRecords, setReportRecords] = useState<ReportRecord[]>([]); // Estado Independente para a Planilha
+  const [reportRecords, setReportRecords] = useState<ReportRecord[]>([]); 
+  const [reportListItems, setReportListItems] = useState<ReportListItem[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   const [activeView, setActiveView] = useState<'dashboard' | 'history' | 'reports' | 'settings'>('dashboard');
   const [isDemoMode, setIsDemoMode] = useState(false);
   
@@ -49,9 +49,21 @@ const App: React.FC = () => {
       const savedQuotes = localStorage.getItem('demo_quotes_v2');
       const savedSuppliers = localStorage.getItem('demo_suppliers');
       const savedReports = localStorage.getItem('demo_reports_v2');
+      const savedListItems = localStorage.getItem('demo_report_lists');
+      
       if (savedQuotes) setQuotes(JSON.parse(savedQuotes));
       if (savedSuppliers) setSuppliers(JSON.parse(savedSuppliers));
       if (savedReports) setReportRecords(JSON.parse(savedReports));
+      if (savedListItems) setReportListItems(JSON.parse(savedListItems));
+      else {
+        // Default options for report delivery
+        const defaults: ReportListItem[] = [
+          { id: 'd1', category: 'entrega', value: 'SIM-ENTREGUE' },
+          { id: 'd2', category: 'entrega', value: 'NAO' },
+          { id: 'd3', category: 'entrega', value: 'RECEBIDO' },
+        ];
+        setReportListItems(defaults);
+      }
       setLoading(false);
     }
   }, [isDemoMode]);
@@ -60,10 +72,11 @@ const App: React.FC = () => {
     if (!isSupabaseConfigured || isDemoMode) return;
     setLoading(true);
     try {
-      const [quotesRes, suppliersRes, reportsRes] = await Promise.all([
+      const [quotesRes, suppliersRes, reportsRes, listsRes] = await Promise.all([
         supabase.from('quotes').select('*').order('created_at', { ascending: false }),
         supabase.from('suppliers').select('*').order('name'),
-        supabase.from('report_records').select('*').order('created_at', { ascending: false })
+        supabase.from('report_records').select('*').order('created_at', { ascending: false }),
+        supabase.from('report_list_items').select('*')
       ]);
 
       if (quotesRes.data) {
@@ -90,6 +103,13 @@ const App: React.FC = () => {
           id: r.id,
           createdAt: new Date(r.created_at).getTime()
         })));
+      }
+
+      if (listsRes.data) {
+        setReportListItems(listsRes.data as ReportListItem[]);
+      } else {
+        // Se a tabela não existir ou estiver vazia em um novo projeto, podemos deixar vazio
+        // ou adicionar os defaults se for a primeira vez.
       }
     } catch (e) {
       console.error("Error fetching data:", e);
@@ -122,7 +142,6 @@ const App: React.FC = () => {
     if (!error) fetchData();
   };
 
-  // Funções Independentes para a Planilha de Relatórios
   const handleSaveReportRecord = async (newRecord: Omit<ReportRecord, 'id' | 'createdAt'>) => {
     if (isDemoMode) {
       const record: ReportRecord = { ...newRecord, id: crypto.randomUUID(), createdAt: Date.now() };
@@ -136,6 +155,22 @@ const App: React.FC = () => {
       user_id: session.user.id,
       ...newRecord
     });
+    if (!error) fetchData();
+  };
+
+  const handleUpdateReportListItems = async (items: ReportListItem[]) => {
+    if (isDemoMode) {
+      setReportListItems(items);
+      localStorage.setItem('demo_report_lists', JSON.stringify(items));
+      return;
+    }
+    if (!session?.user || !isSupabaseConfigured) return;
+    
+    // Simplificando: Deletamos todos e inserimos novamente para este usuário
+    await supabase.from('report_list_items').delete().eq('user_id', session.user.id);
+    const { error } = await supabase.from('report_list_items').insert(
+      items.map(i => ({ user_id: session.user.id, category: i.category, value: i.value }))
+    );
     if (!error) fetchData();
   };
 
@@ -210,7 +245,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-slate-50 flex overflow-x-hidden">
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 text-slate-300 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-full flex flex-col p-6">
           <div className="flex items-center justify-between mb-10">
@@ -230,15 +265,15 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      <main className="flex-1 lg:ml-64 flex flex-col min-h-screen">
+      <main className="flex-1 lg:ml-64 flex flex-col min-h-screen w-full overflow-x-hidden">
         <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-30 px-4 flex items-center justify-between">
           <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-slate-600"><Menu size={24} /></button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 px-4">
              <div className="h-9 w-9 rounded-full bg-slate-900 flex items-center justify-center text-[11px] font-black text-white uppercase tracking-tighter shadow-xl">{isDemoMode ? 'ADM' : session?.user.email?.charAt(0)}</div>
           </div>
         </header>
 
-        <div className="p-4 md:p-10 max-w-7xl mx-auto w-full space-y-8">
+        <div className={`p-4 md:p-6 w-full ${activeView === 'reports' ? '' : 'max-w-7xl mx-auto'} space-y-8 transition-all duration-500`}>
           {activeView === 'dashboard' ? (
             <>
               <section ref={formRef}>
@@ -259,15 +294,17 @@ const App: React.FC = () => {
               </section>
             </>
           ) : activeView === 'history' ? (
-            <HistoryView quotes={quotes} onDelete={handleDeleteQuote} onUpdateQuote={handleUpdateQuote} />
+            <div className="max-w-7xl mx-auto"><HistoryView quotes={quotes} onDelete={handleDeleteQuote} onUpdateQuote={handleUpdateQuote} /></div>
           ) : activeView === 'reports' ? (
             <ReportsView 
               records={reportRecords} 
+              listItems={reportListItems}
               onSaveRecord={handleSaveReportRecord} 
               onDeleteRecord={handleDeleteReportRecord} 
+              onUpdateListItems={handleUpdateReportListItems}
             />
           ) : activeView === 'settings' ? (
-            <SettingsView suppliers={suppliers} onAddSupplier={async s => {}} onUpdateSupplier={async s => {}} onDeleteSupplier={async id => {}} />
+            <div className="max-w-7xl mx-auto"><SettingsView suppliers={suppliers} onAddSupplier={async s => {}} onUpdateSupplier={async s => {}} onDeleteSupplier={async id => {}} /></div>
           ) : (
              <div className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest">Aguardando dados...</div>
           )}
