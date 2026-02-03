@@ -4,6 +4,12 @@ export enum QuoteType {
   APPROVAL = 'APROVAÇÃO DE ORÇAMENTO'
 }
 
+export interface AttachedFile {
+  name: string;
+  data: string; // Base64
+  type: string; // MIME type
+}
+
 export interface Quote {
   id: string;
   type: QuoteType;
@@ -13,6 +19,7 @@ export interface Quote {
   quoteNumberParts: string; 
   quoteNumberServices: string; 
   photo: string | null;
+  files?: AttachedFile[];
   observations: string;
   createdAt: number;
   sent?: boolean;
