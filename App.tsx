@@ -10,7 +10,7 @@ import HistoryView from './components/HistoryView';
 import ReportsView from './components/ReportsView';
 import SystemSettingsView from './components/SystemSettingsView';
 import ProtocolView from './components/ProtocolView';
-import { Layout, Notebook, Settings, Bell, Search, History, Menu, X, LogOut, Loader2, AlertTriangle, ArrowRight, FileSpreadsheet, Monitor, ClipboardCheck } from 'lucide-react';
+import { Layout, Notebook, Settings, Menu, X, LogOut, Loader2, AlertTriangle, ArrowRight, FileSpreadsheet, Monitor, ClipboardCheck, History } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 
 const App: React.FC = () => {
@@ -33,7 +33,6 @@ const App: React.FC = () => {
   
   const formRef = useRef<HTMLDivElement>(null);
 
-  // Calcula quantos itens estão aguardando protocolo
   const protocolPendingCount = reportRecords.filter(r => 
     ['SIM - AGUARD. PROTOCOLO', 'ENTREGUE PEÇAS PROTOCOLO', 'ENTREGUE SERVIÇO PROTOCOLO'].includes(r.entregueRelatorio?.toUpperCase())
   ).length;
@@ -61,7 +60,9 @@ const App: React.FC = () => {
   useEffect(() => {
     const savedBrand = localStorage.getItem('system_brand_v1');
     if (savedBrand) {
-      setSystemSettings(JSON.parse(savedBrand));
+      try {
+        setSystemSettings(JSON.parse(savedBrand));
+      } catch (e) {}
     }
 
     if (isDemoMode) {
@@ -266,6 +267,18 @@ const App: React.FC = () => {
     if (!error) fetchData();
   };
 
+  const handleConfirmProtocolBatch = async (ids: string[]) => {
+    if (isDemoMode) {
+      const updated = reportRecords.map(r => ids.includes(r.id) ? { ...r, entregueRelatorio: 'RECEBIDO - PROTOCOLADO' } : r);
+      setReportRecords(updated);
+      localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
+      return;
+    }
+    if (!session?.user || !isSupabaseConfigured) return;
+    const { error } = await supabase.from('report_records').update({ entregueRelatorio: 'RECEBIDO - PROTOCOLADO' }).in('id', ids);
+    if (!error) fetchData();
+  };
+
   const handleUpdateReportListItems = async (items: ReportListItem[]) => {
     if (isDemoMode) {
       setReportListItems(items);
@@ -457,6 +470,7 @@ const App: React.FC = () => {
             <ProtocolView 
               records={reportRecords}
               onConfirm={handleConfirmProtocol}
+              onConfirmBatch={handleConfirmProtocolBatch}
             />
           ) : activeView === 'settings' ? (
             <div className="max-w-7xl mx-auto">
