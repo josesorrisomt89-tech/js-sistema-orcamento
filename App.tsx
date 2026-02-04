@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Quote, QuoteType, Supplier, ReportRecord, ReportListItem, SystemSettings, UserRole } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
@@ -27,7 +26,6 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeView, setActiveView] = useState<string>('dashboard');
   const [isDemoMode, setIsDemoMode] = useState(false);
-  const [connError, setConnError] = useState<string | null>(null);
   
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
     name: "MECÂNICA VOLUS",
@@ -37,7 +35,6 @@ const App: React.FC = () => {
     users: []
   });
 
-  // Determinar permissões do usuário logado
   const currentUserRole: UserRole = (() => {
     if (isDemoMode) return 'ADMIN';
     if (!session?.user?.email) return 'ADMIN';
@@ -46,7 +43,6 @@ const App: React.FC = () => {
     return userMatch ? userMatch.role : 'ADMIN'; 
   })();
 
-  // Forçar aba correta baseada no papel
   useEffect(() => {
     if (currentUserRole === 'PROTOCOLO' && activeView !== 'protocol') setActiveView('protocol');
     if (currentUserRole === 'TV' && activeView !== 'tv_view') setActiveView('tv_view');
@@ -59,7 +55,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const initAuth = async () => {
-      // Se não houver configuração, não travamos o loading, mostramos a tela de erro
       if (!isSupabaseConfigured) {
         setLoading(false);
         return;
@@ -72,8 +67,7 @@ const App: React.FC = () => {
         if (currentSession) fetchData();
         else setLoading(false);
       } catch (err: any) {
-        console.error("Erro ao conectar ao Supabase:", err);
-        setConnError(err.message || "Erro de rede");
+        console.error("Erro Supabase:", err);
         setLoading(false);
       }
     };
@@ -96,14 +90,18 @@ const App: React.FC = () => {
     if (isDemoMode) {
       const savedQuotes = localStorage.getItem('demo_quotes_v2');
       const savedReports = localStorage.getItem('demo_reports_v2');
+      const savedLists = localStorage.getItem('demo_lists_v2');
       if (savedQuotes) setQuotes(JSON.parse(savedQuotes));
       if (savedReports) setReportRecords(JSON.parse(savedReports));
+      if (savedLists) setReportListItems(JSON.parse(savedLists));
       setLoading(false);
     }
   }, [isDemoMode]);
 
   const fetchData = async () => {
-    if (!isSupabaseConfigured || isDemoMode) return;
+    if (isDemoMode) return;
+    if (!isSupabaseConfigured) return;
+    
     setLoading(true);
     try {
       const [quotesRes, suppliersRes, reportsRes, listsRes, settingsRes] = await Promise.all([
@@ -123,9 +121,90 @@ const App: React.FC = () => {
         localStorage.setItem('system_brand_v1', JSON.stringify(settingsRes.data));
       }
     } catch (e) { 
-      console.error("Erro no fetch de dados:", e); 
+      console.error("Fetch Error:", e); 
     } finally { 
       setLoading(false); 
+    }
+  };
+
+  const handleSaveReportRecord = async (newRecord: Omit<ReportRecord, 'id' | 'createdAt'>) => {
+    const recordWithMeta = {
+      ...newRecord,
+      id: crypto.randomUUID(),
+      createdAt: Date.now()
+    };
+
+    if (isDemoMode) {
+      const updated = [...reportRecords, recordWithMeta];
+      setReportRecords(updated);
+      localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('report_records').insert(recordWithMeta);
+      if (error) throw error;
+      fetchData();
+    } catch (err) {
+      console.error("Save Record Error:", err);
+      alert("Erro ao salvar registro no servidor.");
+    }
+  };
+
+  const handleUpdateReportRecord = async (id: string, updatedFields: Partial<ReportRecord>) => {
+    if (isDemoMode) {
+      const updated = reportRecords.map(r => r.id === id ? { ...r, ...updatedFields } : r);
+      setReportRecords(updated);
+      localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
+      return;
+    }
+    try {
+      const { error } = await supabase.from('report_records').update(updatedFields).eq('id', id);
+      if (error) throw error;
+      fetchData();
+    } catch (err) {
+      console.error("Update Record Error:", err);
+      alert("Erro ao atualizar registro.");
+    }
+  };
+
+  const handleDeleteReportRecord = async (id: string) => {
+    if (!confirm("Excluir este lançamento permanentemente?")) return;
+
+    if (isDemoMode) {
+      const updated = reportRecords.filter(r => r.id !== id);
+      setReportRecords(updated);
+      localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('report_records').delete().eq('id', id);
+      if (error) throw error;
+      fetchData();
+    } catch (err) {
+      console.error("Delete Record Error:", err);
+    }
+  };
+
+  const handleUpdateListItems = async (items: ReportListItem[]) => {
+    if (isDemoMode) {
+      setReportListItems(items);
+      localStorage.setItem('demo_lists_v2', JSON.stringify(items));
+      return true;
+    }
+
+    try {
+      // No Supabase, deletamos os antigos e inserimos os novos para sincronizar
+      // Nota: Em um sistema maior, usaríamos upsert ou sync individual
+      await supabase.from('report_list_items').delete().neq('id', '000'); // Limpa
+      const { error } = await supabase.from('report_list_items').insert(items);
+      if (error) throw error;
+      fetchData();
+      return true;
+    } catch (err) {
+      console.error("Update Lists Error:", err);
+      return false;
     }
   };
 
@@ -138,23 +217,8 @@ const App: React.FC = () => {
         if (existing) await supabase.from('system_settings').update(newSettings).eq('id', existing.id);
         else await supabase.from('system_settings').insert({ ...newSettings, user_id: session.user.id });
       } catch (err) {
-        console.error("Erro ao salvar settings:", err);
+        console.error("Settings Error:", err);
       }
-    }
-  };
-
-  const handleUpdateReportRecord = async (id: string, updatedFields: Partial<ReportRecord>) => {
-    if (isDemoMode) {
-      const updated = reportRecords.map(r => r.id === id ? { ...r, ...updatedFields } : r);
-      setReportRecords(updated);
-      localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
-      return;
-    }
-    try {
-      await supabase.from('report_records').update(updatedFields).eq('id', id);
-      fetchData();
-    } catch (err) {
-      console.error("Erro ao atualizar registro:", err);
     }
   };
 
@@ -173,20 +237,17 @@ const App: React.FC = () => {
   );
 
   if (!session && !isDemoMode) {
-    // Só mostramos o erro se REALMENTE as chaves estiverem vazias.
-    // Se elas existirem mas houver erro de rede, o Auth tentará lidar com isso.
-    if (!isSupabaseConfigured) {
+    const hasEnvUrl = typeof process !== 'undefined' && process.env && process.env.SUPABASE_URL;
+    if (!isSupabaseConfigured && !hasEnvUrl) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-white rounded-[2.5rem] p-8 shadow-2xl text-center space-y-6 animate-in zoom-in duration-300">
+          <div className="max-w-md w-full bg-white rounded-[2.5rem] p-8 shadow-2xl text-center space-y-6">
             <div className="w-20 h-20 bg-amber-100 rounded-3xl flex items-center justify-center mx-auto text-amber-600"><AlertTriangle size={40} /></div>
-            <div>
-              <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none">Acesso Indisponível</h1>
-              <p className="text-slate-500 font-medium mt-2 text-sm leading-relaxed">As chaves de conexão com o banco de dados (Supabase) não foram detectadas no ambiente de produção.</p>
-            </div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none">Configuração Necessária</h1>
+            <p className="text-slate-500 font-medium text-sm">As variáveis de ambiente do Supabase não foram encontradas. Adicione SUPABASE_URL e SUPABASE_ANON_KEY nas configurações.</p>
             <div className="space-y-3">
-              <button onClick={() => window.location.reload()} className="w-full bg-slate-100 text-slate-900 font-black py-4 rounded-2xl uppercase tracking-widest text-[10px] hover:bg-slate-200 transition-all">Tentar Novamente</button>
-              <button onClick={() => setIsDemoMode(true)} className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-indigo-200 uppercase tracking-widest text-[10px] active:scale-95 transition-all">Entrar em Modo Teste Local</button>
+               <button onClick={() => window.location.reload()} className="w-full bg-slate-100 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest">Recarregar Página</button>
+               <button onClick={() => setIsDemoMode(true)} className="w-full bg-indigo-600 text-white py-5 rounded-2xl shadow-xl font-black uppercase text-[10px] tracking-widest">Entrar em Modo Teste Local</button>
             </div>
           </div>
         </div>
@@ -272,7 +333,16 @@ const App: React.FC = () => {
         <div className="p-4 md:p-8 w-full">
           {activeView === 'dashboard' && <><QuoteForm onSave={() => fetchData()} suppliers={suppliers} /><QuoteList quotes={quotes.slice(0, 1)} onDelete={() => {}} /></>}
           {activeView === 'history' && <HistoryView quotes={quotes} onDelete={() => {}} onUpdateQuote={() => {}} />}
-          {activeView === 'reports' && <ReportsView records={reportRecords} listItems={reportListItems} onSaveRecord={() => {}} onUpdateRecord={() => {}} onDeleteRecord={() => {}} onUpdateListItems={async () => true} />}
+          {activeView === 'reports' && (
+            <ReportsView 
+              records={reportRecords} 
+              listItems={reportListItems} 
+              onSaveRecord={handleSaveReportRecord} 
+              onUpdateRecord={handleUpdateReportRecord} 
+              onDeleteRecord={handleDeleteReportRecord} 
+              onUpdateListItems={handleUpdateListItems} 
+            />
+          )}
           {activeView === 'protocol' && <ProtocolView records={reportRecords} onConfirm={(id) => handleUpdateReportRecord(id, { entregueRelatorio: 'RECEBIDO - PROTOCOLADO' })} onUpdateRecord={handleUpdateReportRecord} />}
           {activeView === 'system' && <SystemSettingsView settings={systemSettings} onSave={handleUpdateSystemSettings} />}
           {activeView === 'oficina_cadastro' && <PlaceholderView title="Cadastro de Serviços Oficina" icon={<Wrench size={48}/>} subtitle="Em breve: Gestão completa de ordens de serviço interna." />}
