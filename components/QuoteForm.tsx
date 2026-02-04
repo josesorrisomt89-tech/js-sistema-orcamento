@@ -146,7 +146,8 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
           photo, 
           files: attachedFiles, 
           observations: polishedMessage, 
-          createdAt: Date.now()
+          // Fix: Date.now() returns a number, but the Quote interface expects a string for createdAt.
+          createdAt: new Date().toISOString()
         });
       }
       
