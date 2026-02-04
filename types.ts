@@ -1,5 +1,3 @@
-
-
 export enum QuoteType {
   REQUEST = 'PEDIDO DE ORÇAMENTO',
   APPROVAL = 'APROVAÇÃO DE ORÇAMENTO'
@@ -34,7 +32,6 @@ export interface Quote {
   sent?: boolean;
 }
 
-// Added BatchItem interface to fix import error in QuoteForm.tsx
 export interface BatchItem {
   id: string;
   supplierName: string;
@@ -84,5 +81,5 @@ export interface SystemSettings {
   logoUrl: string | null;
   primaryColor: string;
   subtitle: string;
-  users?: SystemUser[]; // Gerenciamento centralizado de usuários e permissões
+  users?: SystemUser[]; 
 }
