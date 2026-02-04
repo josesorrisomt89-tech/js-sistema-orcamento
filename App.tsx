@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Quote, QuoteType, Supplier, ReportRecord, ReportListItem, SystemSettings, UserRole } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
@@ -26,6 +27,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeView, setActiveView] = useState<string>('dashboard');
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [connError, setConnError] = useState<string | null>(null);
   
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
     name: "MECÂNICA VOLUS",
@@ -57,6 +59,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const initAuth = async () => {
+      // Se não houver configuração, não travamos o loading, mostramos a tela de erro
       if (!isSupabaseConfigured) {
         setLoading(false);
         return;
@@ -68,8 +71,9 @@ const App: React.FC = () => {
         setSession(currentSession);
         if (currentSession) fetchData();
         else setLoading(false);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Erro ao conectar ao Supabase:", err);
+        setConnError(err.message || "Erro de rede");
         setLoading(false);
       }
     };
@@ -159,22 +163,6 @@ const App: React.FC = () => {
     else if (isSupabaseConfigured) await supabase.auth.signOut();
   };
 
-  if (!session && !isDemoMode) {
-    if (!isSupabaseConfigured) {
-      return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-white rounded-[2.5rem] p-8 shadow-2xl text-center space-y-6">
-            <div className="w-20 h-20 bg-amber-100 rounded-3xl flex items-center justify-center mx-auto text-amber-600"><AlertTriangle size={40} /></div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Configuração Pendente</h1>
-            <p className="text-slate-500 font-medium">As chaves do Supabase não foram encontradas. Configure as variáveis de ambiente.</p>
-            <button onClick={() => setIsDemoMode(true)} className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-indigo-200 uppercase tracking-widest text-xs">Entrar em Modo Teste Local</button>
-          </div>
-        </div>
-      );
-    }
-    return <Auth branding={systemSettings} />;
-  }
-
   if (loading) return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
@@ -183,6 +171,29 @@ const App: React.FC = () => {
       </div>
     </div>
   );
+
+  if (!session && !isDemoMode) {
+    // Só mostramos o erro se REALMENTE as chaves estiverem vazias.
+    // Se elas existirem mas houver erro de rede, o Auth tentará lidar com isso.
+    if (!isSupabaseConfigured) {
+      return (
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-white rounded-[2.5rem] p-8 shadow-2xl text-center space-y-6 animate-in zoom-in duration-300">
+            <div className="w-20 h-20 bg-amber-100 rounded-3xl flex items-center justify-center mx-auto text-amber-600"><AlertTriangle size={40} /></div>
+            <div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none">Acesso Indisponível</h1>
+              <p className="text-slate-500 font-medium mt-2 text-sm leading-relaxed">As chaves de conexão com o banco de dados (Supabase) não foram detectadas no ambiente de produção.</p>
+            </div>
+            <div className="space-y-3">
+              <button onClick={() => window.location.reload()} className="w-full bg-slate-100 text-slate-900 font-black py-4 rounded-2xl uppercase tracking-widest text-[10px] hover:bg-slate-200 transition-all">Tentar Novamente</button>
+              <button onClick={() => setIsDemoMode(true)} className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-indigo-200 uppercase tracking-widest text-[10px] active:scale-95 transition-all">Entrar em Modo Teste Local</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return <Auth branding={systemSettings} />;
+  }
 
   const canSee = (roles: UserRole[]) => roles.includes(currentUserRole);
 
