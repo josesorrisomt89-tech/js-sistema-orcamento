@@ -1,7 +1,16 @@
 
+
 export enum QuoteType {
   REQUEST = 'PEDIDO DE ORÇAMENTO',
   APPROVAL = 'APROVAÇÃO DE ORÇAMENTO'
+}
+
+export type UserRole = 'ADMIN' | 'PROTOCOLO' | 'OFICINA' | 'TV';
+
+export interface SystemUser {
+  email: string;
+  role: UserRole;
+  addedAt: number;
 }
 
 export interface AttachedFile {
@@ -23,6 +32,16 @@ export interface Quote {
   observations: string;
   createdAt: number;
   sent?: boolean;
+}
+
+// Added BatchItem interface to fix import error in QuoteForm.tsx
+export interface BatchItem {
+  id: string;
+  supplierName: string;
+  supplierPhone: string;
+  prefix: string;
+  quoteNumberParts: string;
+  quoteNumberServices: string;
 }
 
 export interface ReportRecord {
@@ -54,20 +73,10 @@ export interface ReportListItem {
   value: string;
 }
 
-export interface BatchItem {
-  id: string;
-  supplierName: string;
-  supplierPhone: string;
-  prefix?: string;
-  quoteNumberParts: string;
-  quoteNumberServices: string;
-}
-
 export interface Supplier {
   id: string;
   name: string;
   phone: string;
-  category?: string;
 }
 
 export interface SystemSettings {
@@ -75,4 +84,5 @@ export interface SystemSettings {
   logoUrl: string | null;
   primaryColor: string;
   subtitle: string;
+  users?: SystemUser[]; // Gerenciamento centralizado de usuários e permissões
 }
