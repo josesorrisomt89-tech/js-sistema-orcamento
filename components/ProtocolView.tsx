@@ -33,7 +33,8 @@ const ProtocolView: React.FC<ProtocolViewProps> = ({ records, onConfirm, onConfi
       r.prefixo?.toLowerCase().includes(searchTerm.toLowerCase()) || 
       r.fornecedor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       r.secretaria?.toLowerCase().includes(searchTerm.toLowerCase())
-    ).sort((a, b) => a.createdAt - b.createdAt);
+      // Fix: Sort strings using Date comparison to avoid arithmetic errors on strings.
+    ).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [records, searchTerm]);
 
   const toggleSelect = (id: string) => {
