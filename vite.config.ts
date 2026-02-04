@@ -1,13 +1,14 @@
 
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
-// Fix: Import process explicitly from node:process to provide correct types for process.cwd()
-import process from 'node:process';
+// Fix: Import specific functions from node:process to avoid typing issues with the default process object
+import { cwd } from 'node:process';
 
 export default defineConfig(({ mode }) => {
   // Carrega todas as variáveis de ambiente (incluindo as sem prefixo VITE_)
-  // Use process.cwd() to resolve the environment file path correctly during build
-  const env = loadEnv(mode, process.cwd(), '');
+  // Use cwd() from node:process to resolve the environment file path correctly during build
+  // This fix addresses the error where property 'cwd' was not found on the default process import
+  const env = loadEnv(mode, cwd(), '');
   
   return {
     plugins: [react()],
