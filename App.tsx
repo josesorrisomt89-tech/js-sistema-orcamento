@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Quote, QuoteType, Supplier, ReportRecord, ReportListItem, SystemSettings, UserRole } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
@@ -42,7 +41,7 @@ const App: React.FC = () => {
     if (!session?.user?.email) return 'ADMIN';
     const email = session.user.email.toLowerCase().trim();
     const userMatch = systemSettings.users?.find(u => u.email.toLowerCase() === email);
-    return userMatch ? userMatch.role : 'ADMIN';
+    return userMatch ? userMatch.role : 'ADMIN'; 
   })();
 
   // Forçar aba correta baseada no papel
@@ -71,7 +70,6 @@ const App: React.FC = () => {
         else setLoading(false);
       } catch (err) {
         console.error("Erro ao conectar ao Supabase:", err);
-        // Se houver erro de rede, não travamos o app, permitimos que o usuário tente entrar ou use modo demo
         setLoading(false);
       }
     };
@@ -109,7 +107,7 @@ const App: React.FC = () => {
         supabase.from('suppliers').select('*').order('name'),
         supabase.from('report_records').select('*').order('created_at', { ascending: false }),
         supabase.from('report_list_items').select('*').order('value'),
-        supabase.from('system_settings').select('*').limit(1).single()
+        supabase.from('system_settings').select('*').limit(1).maybeSingle()
       ]);
       
       if (quotesRes.data) setQuotes(quotesRes.data as any);
@@ -132,7 +130,7 @@ const App: React.FC = () => {
     localStorage.setItem('system_brand_v1', JSON.stringify(newSettings));
     if (isSupabaseConfigured && session?.user && !isDemoMode) {
       try {
-        const { data: existing } = await supabase.from('system_settings').select('id').limit(1).single();
+        const { data: existing } = await supabase.from('system_settings').select('id').limit(1).maybeSingle();
         if (existing) await supabase.from('system_settings').update(newSettings).eq('id', existing.id);
         else await supabase.from('system_settings').insert({ ...newSettings, user_id: session.user.id });
       } catch (err) {
