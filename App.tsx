@@ -16,6 +16,32 @@ import {
 } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 
+// Função auxiliar para converter camelCase para snake_case
+const toSnakeCase = (obj: any) => {
+  const snake: any = {};
+  for (const key in obj) {
+    const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+    // Tratamento especial para createdAt -> created_at
+    if (key === 'createdAt') snake['created_at'] = obj[key];
+    else snake[snakeKey] = obj[key];
+  }
+  return snake;
+};
+
+// Função auxiliar para converter snake_case para camelCase
+const toCamelCase = (obj: any): any => {
+  const camel: any = {};
+  for (const key in obj) {
+    const camelKey = key.replace(/([-_][a-z])/g, group =>
+      group.toUpperCase().replace('-', '').replace('_', '')
+    );
+    // Tratamento especial para created_at -> createdAt
+    if (key === 'created_at') camel['createdAt'] = obj[key];
+    else camel[camelKey] = obj[key];
+  }
+  return camel;
+};
+
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -112,9 +138,9 @@ const App: React.FC = () => {
         supabase.from('system_settings').select('*').limit(1).maybeSingle()
       ]);
       
-      if (quotesRes.data) setQuotes(quotesRes.data as any);
+      if (quotesRes.data) setQuotes(quotesRes.data.map(q => toCamelCase(q)) as any);
       if (suppliersRes.data) setSuppliers(suppliersRes.data as any);
-      if (reportsRes.data) setReportRecords(reportsRes.data as any);
+      if (reportsRes.data) setReportRecords(reportsRes.data.map(r => toCamelCase(r)) as any);
       if (listsRes.data) setReportListItems(listsRes.data as any);
       if (settingsRes.data) {
         setSystemSettings(settingsRes.data as SystemSettings);
@@ -131,23 +157,24 @@ const App: React.FC = () => {
     const recordWithMeta = {
       ...newRecord,
       id: crypto.randomUUID(),
-      createdAt: Date.now()
+      createdAt: new Date().toISOString()
     };
 
     if (isDemoMode) {
-      const updated = [...reportRecords, recordWithMeta];
+      const updated = [...reportRecords, recordWithMeta as any];
       setReportRecords(updated);
       localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
       return;
     }
 
     try {
-      const { error } = await supabase.from('report_records').insert(recordWithMeta);
+      // Converte para snake_case antes de inserir no Supabase
+      const { error } = await supabase.from('report_records').insert(toSnakeCase(recordWithMeta));
       if (error) throw error;
       fetchData();
     } catch (err) {
       console.error("Save Record Error:", err);
-      alert("Erro ao salvar registro no servidor.");
+      alert("Erro ao salvar registro no servidor. Verifique se os campos foram preenchidos corretamente.");
     }
   };
 
@@ -159,12 +186,13 @@ const App: React.FC = () => {
       return;
     }
     try {
-      const { error } = await supabase.from('report_records').update(updatedFields).eq('id', id);
+      // Converte apenas os campos alterados para snake_case
+      const { error } = await supabase.from('report_records').update(toSnakeCase(updatedFields)).eq('id', id);
       if (error) throw error;
       fetchData();
     } catch (err) {
       console.error("Update Record Error:", err);
-      alert("Erro ao atualizar registro.");
+      alert("Erro ao atualizar registro no banco de dados.");
     }
   };
 
@@ -195,9 +223,8 @@ const App: React.FC = () => {
     }
 
     try {
-      // No Supabase, deletamos os antigos e inserimos os novos para sincronizar
-      // Nota: Em um sistema maior, usaríamos upsert ou sync individual
-      await supabase.from('report_list_items').delete().neq('id', '000'); // Limpa
+      // Limpa e reinsere
+      await supabase.from('report_list_items').delete().neq('id', '000'); 
       const { error } = await supabase.from('report_list_items').insert(items);
       if (error) throw error;
       fetchData();
@@ -331,7 +358,7 @@ const App: React.FC = () => {
         </header>
 
         <div className="p-4 md:p-8 w-full">
-          {activeView === 'dashboard' && <><QuoteForm onSave={() => fetchData()} suppliers={suppliers} /><QuoteList quotes={quotes.slice(0, 1)} onDelete={() => {}} /></>}
+          {activeView === 'dashboard' && <><QuoteForm onSave={() => fetchData()} suppliers={suppliers} /><QuoteList quotes={quotes.slice(0, 5)} onDelete={() => {}} /></>}
           {activeView === 'history' && <HistoryView quotes={quotes} onDelete={() => {}} onUpdateQuote={() => {}} />}
           {activeView === 'reports' && (
             <ReportsView 
