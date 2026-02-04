@@ -28,7 +28,7 @@ export interface Quote {
   photo: string | null;
   files?: AttachedFile[];
   observations: string;
-  createdAt: number;
+  createdAt: string;
   sent?: boolean;
 }
 
@@ -61,7 +61,8 @@ export interface ReportRecord {
   status: string;
   entregueRelatorio: string;
   observacao: string;
-  createdAt: number;
+  createdAt: string;
+  userId?: string;
 }
 
 export interface ReportListItem {
