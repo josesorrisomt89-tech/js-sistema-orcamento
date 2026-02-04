@@ -140,7 +140,8 @@ OBS: *${editObservations.toUpperCase()}*`;
             {expandedSuppliers[supplierName] && (
               <div className="p-8 pt-0 border-t border-slate-100 bg-white">
                 <div className="grid grid-cols-1 gap-6 mt-8">
-                  {supplierQuotes.sort((a, b) => b.createdAt - a.createdAt).map(quote => (
+                  {/* Fix: Sort by createdAt (string) by converting to Date object timestamps to resolve arithmetic errors on strings. */}
+                  {supplierQuotes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(quote => (
                     <div key={quote.id} className="bg-slate-50/50 rounded-3xl border border-slate-200 p-6 flex flex-col lg:flex-row gap-8 transition-all hover:bg-white hover:shadow-lg">
                       <div className="w-full lg:w-56 flex-shrink-0 space-y-3">
                         <div className="aspect-square relative rounded-2xl overflow-hidden border-2 border-white shadow-sm bg-slate-100">
