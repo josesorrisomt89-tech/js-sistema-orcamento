@@ -21,8 +21,8 @@ const toSnakeCase = (obj: any) => {
   const snake: any = {};
   for (const key in obj) {
     const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-    // Tratamento especial para createdAt -> created_at
     if (key === 'createdAt') snake['created_at'] = obj[key];
+    else if (key === 'userId') snake['user_id'] = obj[key];
     else snake[snakeKey] = obj[key];
   }
   return snake;
@@ -35,8 +35,8 @@ const toCamelCase = (obj: any): any => {
     const camelKey = key.replace(/([-_][a-z])/g, group =>
       group.toUpperCase().replace('-', '').replace('_', '')
     );
-    // Tratamento especial para created_at -> createdAt
     if (key === 'created_at') camel['createdAt'] = obj[key];
+    else if (key === 'user_id') camel['userId'] = obj[key];
     else camel[camelKey] = obj[key];
   }
   return camel;
@@ -157,7 +157,8 @@ const App: React.FC = () => {
     const recordWithMeta = {
       ...newRecord,
       id: crypto.randomUUID(),
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      userId: session?.user?.id
     };
 
     if (isDemoMode) {
@@ -168,13 +169,15 @@ const App: React.FC = () => {
     }
 
     try {
-      // Converte para snake_case antes de inserir no Supabase
       const { error } = await supabase.from('report_records').insert(toSnakeCase(recordWithMeta));
-      if (error) throw error;
+      if (error) {
+        console.error("Erro detalhado do Supabase:", error);
+        throw error;
+      }
       fetchData();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Save Record Error:", err);
-      alert("Erro ao salvar registro no servidor. Verifique se os campos foram preenchidos corretamente.");
+      alert(`Erro ao salvar no servidor: ${err.message || 'Verifique sua conexão ou as colunas da tabela.'}`);
     }
   };
 
@@ -186,13 +189,12 @@ const App: React.FC = () => {
       return;
     }
     try {
-      // Converte apenas os campos alterados para snake_case
       const { error } = await supabase.from('report_records').update(toSnakeCase(updatedFields)).eq('id', id);
       if (error) throw error;
       fetchData();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Update Record Error:", err);
-      alert("Erro ao atualizar registro no banco de dados.");
+      alert(`Erro ao atualizar: ${err.message}`);
     }
   };
 
@@ -223,7 +225,6 @@ const App: React.FC = () => {
     }
 
     try {
-      // Limpa e reinsere
       await supabase.from('report_list_items').delete().neq('id', '000'); 
       const { error } = await supabase.from('report_list_items').insert(items);
       if (error) throw error;
