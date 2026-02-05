@@ -41,10 +41,10 @@ const ReportsView: React.FC<ReportsViewProps> = ({
     descricao: '',
     num_pedido_oficina: '',
     oficina_tipo: 'TERCERIZADA',
-    data_lancamento_volus: '',
-    num_orc_volus_pecas: '',
-    num_orc_volus_serv: '',
-    data_aprovacao_volus: '',
+    data_lancamento: '',
+    num_orc_pecas: '',
+    num_orc_serv: '',
+    data_aprovacao: '',
     num_orc_aprovado: '',
     valor_total: '',
     nota_fiscal: '',
@@ -63,10 +63,10 @@ const ReportsView: React.FC<ReportsViewProps> = ({
       descricao: '',
       num_pedido_oficina: '',
       oficina_tipo: 'TERCERIZADA',
-      data_lancamento_volus: '',
-      num_orc_volus_pecas: '',
-      num_orc_volus_serv: '',
-      data_aprovacao_volus: '',
+      data_lancamento: '',
+      num_orc_pecas: '',
+      num_orc_serv: '',
+      data_aprovacao: '',
       num_orc_aprovado: '',
       valor_total: '',
       nota_fiscal: '',
@@ -88,10 +88,10 @@ const ReportsView: React.FC<ReportsViewProps> = ({
       descricao: record.descricao || '',
       num_pedido_oficina: record.num_pedido_oficina || '',
       oficina_tipo: record.oficina_tipo || 'TERCERIZADA',
-      data_lancamento_volus: record.data_lancamento_volus || '',
-      num_orc_volus_pecas: record.num_orc_volus_pecas || '',
-      num_orc_volus_serv: record.num_orc_volus_serv || '',
-      data_aprovacao_volus: record.data_aprovacao_volus || '',
+      data_lancamento: record.data_lancamento || '',
+      num_orc_pecas: record.num_orc_pecas || '',
+      num_orc_serv: record.num_orc_serv || '',
+      data_aprovacao: record.data_aprovacao || '',
       num_orc_aprovado: record.num_orc_aprovado || '',
       valor_total: record.valor_total || '',
       nota_fiscal: record.nota_fiscal || '',
@@ -177,7 +177,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
             <tbody className="divide-y divide-slate-100">
               {filteredRecords.map(r => (
                 <tr key={r.id} className="hover:bg-slate-50 transition-colors group">
-                  <td className="px-4 py-4 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-100 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
+                  <td className="px-4 py-4 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-100 shadow-[2px_0_5_rgba(0,0,0,0.05)]">
                     <div className="flex gap-3">
                       <button onClick={() => handleEditClick(r)} className="text-slate-300 hover:text-indigo-600 transition-colors"><Edit2 size={16} /></button>
                       <button onClick={() => onDeleteRecord(r.id)} className="text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={16} /></button>
@@ -189,10 +189,10 @@ const ReportsView: React.FC<ReportsViewProps> = ({
                   <td className="px-4 py-4 text-[11px] uppercase border-r max-w-xs truncate">{r.descricao}</td>
                   <td className="px-4 py-4 text-[11px] font-bold text-center border-r">{r.num_pedido_oficina}</td>
                   <td className="px-4 py-4 text-[10px] font-black text-center border-r uppercase">{r.oficina_tipo}</td>
-                  <td className="px-4 py-4 text-[11px] text-center border-r">{r.data_lancamento_volus}</td>
-                  <td className="px-4 py-4 text-[11px] text-center font-bold border-r">{r.num_orc_volus_pecas}</td>
-                  <td className="px-4 py-4 text-[11px] text-center font-bold border-r">{r.num_orc_volus_serv}</td>
-                  <td className="px-4 py-4 text-[11px] text-center border-r">{r.data_aprovacao_volus}</td>
+                  <td className="px-4 py-4 text-[11px] text-center border-r">{r.data_lancamento}</td>
+                  <td className="px-4 py-4 text-[11px] text-center font-bold border-r">{r.num_orc_pecas}</td>
+                  <td className="px-4 py-4 text-[11px] text-center font-bold border-r">{r.num_orc_serv}</td>
+                  <td className="px-4 py-4 text-[11px] text-center border-r">{r.data_aprovacao}</td>
                   <td className="px-4 py-4 text-[11px] font-black text-emerald-600 text-center border-r uppercase">{r.num_orc_aprovado}</td>
                   <td className="px-4 py-4 text-[11px] font-black text-center border-r">R$ {r.valor_total}</td>
                   <td className="px-4 py-4 text-[11px] font-bold text-center border-r uppercase">{r.nota_fiscal}</td>
@@ -225,12 +225,12 @@ const ReportsView: React.FC<ReportsViewProps> = ({
               <Field label="Descrição" value={formData.descricao} onChange={v => setFormData({...formData, descricao: v})} />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Field label="Nº Pedido Oficina" value={formData.num_pedido_oficina} onChange={v => setFormData({...formData, num_pedido_oficina: v})} />
-                <Field label="Data Lançamento Volus" type="date" value={formData.data_lancamento_volus} onChange={v => setFormData({...formData, data_lancamento_volus: v})} />
-                <Field label="Data Aprovação Volus" type="date" value={formData.data_aprovacao_volus} onChange={v => setFormData({...formData, data_aprovacao_volus: v})} />
+                <Field label="Data Lançamento Volus" type="date" value={formData.data_lancamento} onChange={v => setFormData({...formData, data_lancamento: v})} />
+                <Field label="Data Aprovação Volus" type="date" value={formData.data_aprovacao} onChange={v => setFormData({...formData, data_aprovacao: v})} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Field label="Orç Peças Volus" value={formData.num_orc_volus_pecas} onChange={v => setFormData({...formData, num_orc_volus_pecas: v})} />
-                <Field label="Orç Serv Volus" value={formData.num_orc_volus_serv} onChange={v => setFormData({...formData, num_orc_volus_serv: v})} />
+                <Field label="Orç Peças Volus" value={formData.num_orc_pecas} onChange={v => setFormData({...formData, num_orc_pecas: v})} />
+                <Field label="Orç Serv Volus" value={formData.num_orc_serv} onChange={v => setFormData({...formData, num_orc_serv: v})} />
                 <Field label="Nº Orç Aprovado" value={formData.num_orc_aprovado} onChange={v => setFormData({...formData, num_orc_aprovado: v})} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
