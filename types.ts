@@ -1,3 +1,4 @@
+
 export enum QuoteType {
   REQUEST = 'PEDIDO DE ORÇAMENTO',
   APPROVAL = 'APROVAÇÃO DE ORÇAMENTO'
