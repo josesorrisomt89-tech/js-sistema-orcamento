@@ -30,6 +30,7 @@ export interface Quote {
   observations: string;
   createdAt: string;
   sent?: boolean;
+  userId?: string;
 }
 
 export interface BatchItem {
