@@ -16,14 +16,12 @@ import {
 } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 
-// Mappers para compatibilidade entre CamelCase (Frontend) e SnakeCase (Database)
 const toSnakeCase = (obj: any) => {
   const snake: any = {};
   for (const key in obj) {
-    const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
     if (key === 'createdAt') snake['created_at'] = obj[key];
     else if (key === 'userId') snake['user_id'] = obj[key];
-    else snake[snakeKey] = obj[key];
+    else snake[key] = obj[key]; // Preserva snake_case dos dados que já vem padronizados do front
   }
   return snake;
 };
@@ -31,12 +29,9 @@ const toSnakeCase = (obj: any) => {
 const toCamelCase = (obj: any): any => {
   const camel: any = {};
   for (const key in obj) {
-    const camelKey = key.replace(/([-_][a-z])/g, group =>
-      group.toUpperCase().replace('-', '').replace('_', '')
-    );
     if (key === 'created_at') camel['createdAt'] = obj[key];
     else if (key === 'user_id') camel['userId'] = obj[key];
-    else camel[camelKey] = obj[key];
+    else camel[key] = obj[key]; // Preserva snake_case nos dados, o front os consome assim agora para maior estabilidade
   }
   return camel;
 };
@@ -75,7 +70,7 @@ const App: React.FC = () => {
   }, [currentUserRole, activeView]);
 
   const protocolPendingCount = reportRecords.filter(r => 
-    ['SIM - AGUARD. PROTOCOLO', 'ENTREGUE PEÇAS PROTOCOLO', 'ENTREGUE SERVIÇO PROTOCOLO'].includes(r.entregueRelatorio?.toUpperCase())
+    ['SIM - AGUARD. PROTOCOLO', 'ENTREGUE PEÇAS PROTOCOLO', 'ENTREGUE SERVIÇO PROTOCOLO'].includes(r.entregue_relatorio?.toUpperCase())
   ).length;
 
   useEffect(() => {
@@ -172,11 +167,14 @@ const App: React.FC = () => {
 
     try {
       const { error } = await supabase.from('report_records').insert(toSnakeCase(recordWithMeta));
-      if (error) throw error;
+      if (error) {
+        console.error("DB Error Details:", error);
+        throw error;
+      }
       fetchData();
     } catch (err: any) {
       console.error("Save Record Error:", err);
-      alert(`Erro ao salvar no servidor: ${err.message}`);
+      alert(`Erro ao salvar no servidor: ${err.message}. Verifique se todas as colunas existem na tabela report_records.`);
     }
   };
 
@@ -276,7 +274,6 @@ const App: React.FC = () => {
             </div>
             <h1 className="text-white font-black text-lg uppercase tracking-tighter italic truncate">{systemSettings.name}</h1>
           </div>
-          
           <nav className="flex-1 space-y-1">
             {canSee(['ADMIN']) && (
               <>
@@ -301,7 +298,6 @@ const App: React.FC = () => {
               </>
             )}
           </nav>
-
           <div className="mt-auto space-y-4">
             <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
               <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Perfil: {currentUserRole}</p>
@@ -326,7 +322,6 @@ const App: React.FC = () => {
              </div>
           </div>
         </header>
-
         <div className="p-4 md:p-8 w-full">
           {activeView === 'dashboard' && <><QuoteForm onSave={handleSaveQuotes} suppliers={suppliers} /><QuoteList quotes={quotes.slice(0, 5)} onDelete={() => {}} /></>}
           {activeView === 'history' && <HistoryView quotes={quotes} onDelete={() => {}} onUpdateQuote={() => fetchData()} />}
@@ -340,7 +335,7 @@ const App: React.FC = () => {
               onUpdateListItems={handleUpdateListItems} 
             />
           )}
-          {activeView === 'protocol' && <ProtocolView records={reportRecords} onConfirm={(id) => handleUpdateReportRecord(id, { entregueRelatorio: 'RECEBIDO - PROTOCOLADO' })} onUpdateRecord={handleUpdateReportRecord} />}
+          {activeView === 'protocol' && <ProtocolView records={reportRecords} onConfirm={(id) => handleUpdateReportRecord(id, { entregue_relatorio: 'RECEBIDO - PROTOCOLADO' })} onUpdateRecord={handleUpdateReportRecord} />}
           {activeView === 'system' && <SystemSettingsView settings={systemSettings} onSave={handleUpdateSystemSettings} />}
           {activeView === 'oficina_cadastro' && <PlaceholderView title="Cadastro de Serviços Oficina" icon={<Wrench size={48}/>} subtitle="Em breve: Gestão completa de ordens de serviço interna." />}
           {activeView === 'tv_view' && <PlaceholderView title="Painel Smart TV" icon={<Tv size={48}/>} subtitle="Em breve: Tela de acompanhamento em tempo real para clientes." />}
