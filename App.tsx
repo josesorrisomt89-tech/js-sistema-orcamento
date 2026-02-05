@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 
-// Função auxiliar para converter camelCase para snake_case
+// Mappers para compatibilidade entre CamelCase (Frontend) e SnakeCase (Database)
 const toSnakeCase = (obj: any) => {
   const snake: any = {};
   for (const key in obj) {
@@ -28,7 +28,6 @@ const toSnakeCase = (obj: any) => {
   return snake;
 };
 
-// Função auxiliar para converter snake_case para camelCase
 const toCamelCase = (obj: any): any => {
   const camel: any = {};
   for (const key in obj) {
@@ -85,7 +84,6 @@ const App: React.FC = () => {
         setLoading(false);
         return;
       }
-
       try {
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
         if (error) throw error;
@@ -97,32 +95,13 @@ const App: React.FC = () => {
         setLoading(false);
       }
     };
-
     initAuth();
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) fetchData();
     });
-
     return () => subscription.unsubscribe();
   }, []);
-
-  useEffect(() => {
-    const savedBrand = localStorage.getItem('system_brand_v1');
-    if (savedBrand) {
-      try { setSystemSettings(JSON.parse(savedBrand)); } catch (e) {}
-    }
-    if (isDemoMode) {
-      const savedQuotes = localStorage.getItem('demo_quotes_v2');
-      const savedReports = localStorage.getItem('demo_reports_v2');
-      const savedLists = localStorage.getItem('demo_lists_v2');
-      if (savedQuotes) setQuotes(JSON.parse(savedQuotes));
-      if (savedReports) setReportRecords(JSON.parse(savedReports));
-      if (savedLists) setReportListItems(JSON.parse(savedLists));
-      setLoading(false);
-    }
-  }, [isDemoMode]);
 
   const fetchData = async () => {
     if (isDemoMode) return;
@@ -153,6 +132,29 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSaveQuotes = async (newQuotes: Quote[]) => {
+    const quotesWithUser = newQuotes.map(q => ({
+      ...q,
+      userId: session?.user?.id
+    }));
+
+    if (isDemoMode) {
+      const updated = [...quotes, ...quotesWithUser];
+      setQuotes(updated);
+      localStorage.setItem('demo_quotes_v2', JSON.stringify(updated));
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('quotes').insert(quotesWithUser.map(q => toSnakeCase(q)));
+      if (error) throw error;
+      fetchData();
+    } catch (err) {
+      console.error("Save Quotes Error:", err);
+      alert("Erro ao salvar orçamentos no histórico.");
+    }
+  };
+
   const handleSaveReportRecord = async (newRecord: Omit<ReportRecord, 'id' | 'createdAt'>) => {
     const recordWithMeta = {
       ...newRecord,
@@ -170,14 +172,11 @@ const App: React.FC = () => {
 
     try {
       const { error } = await supabase.from('report_records').insert(toSnakeCase(recordWithMeta));
-      if (error) {
-        console.error("Erro detalhado do Supabase:", error);
-        throw error;
-      }
+      if (error) throw error;
       fetchData();
     } catch (err: any) {
       console.error("Save Record Error:", err);
-      alert(`Erro ao salvar no servidor: ${err.message || 'Verifique sua conexão ou as colunas da tabela.'}`);
+      alert(`Erro ao salvar no servidor: ${err.message}`);
     }
   };
 
@@ -200,14 +199,12 @@ const App: React.FC = () => {
 
   const handleDeleteReportRecord = async (id: string) => {
     if (!confirm("Excluir este lançamento permanentemente?")) return;
-
     if (isDemoMode) {
       const updated = reportRecords.filter(r => r.id !== id);
       setReportRecords(updated);
       localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
       return;
     }
-
     try {
       const { error } = await supabase.from('report_records').delete().eq('id', id);
       if (error) throw error;
@@ -223,7 +220,6 @@ const App: React.FC = () => {
       localStorage.setItem('demo_lists_v2', JSON.stringify(items));
       return true;
     }
-
     try {
       await supabase.from('report_list_items').delete().neq('id', '000'); 
       const { error } = await supabase.from('report_list_items').insert(items);
@@ -265,22 +261,6 @@ const App: React.FC = () => {
   );
 
   if (!session && !isDemoMode) {
-    const hasEnvUrl = typeof process !== 'undefined' && process.env && process.env.SUPABASE_URL;
-    if (!isSupabaseConfigured && !hasEnvUrl) {
-      return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-white rounded-[2.5rem] p-8 shadow-2xl text-center space-y-6">
-            <div className="w-20 h-20 bg-amber-100 rounded-3xl flex items-center justify-center mx-auto text-amber-600"><AlertTriangle size={40} /></div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none">Configuração Necessária</h1>
-            <p className="text-slate-500 font-medium text-sm">As variáveis de ambiente do Supabase não foram encontradas. Adicione SUPABASE_URL e SUPABASE_ANON_KEY nas configurações.</p>
-            <div className="space-y-3">
-               <button onClick={() => window.location.reload()} className="w-full bg-slate-100 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest">Recarregar Página</button>
-               <button onClick={() => setIsDemoMode(true)} className="w-full bg-indigo-600 text-white py-5 rounded-2xl shadow-xl font-black uppercase text-[10px] tracking-widest">Entrar em Modo Teste Local</button>
-            </div>
-          </div>
-        </div>
-      );
-    }
     return <Auth branding={systemSettings} />;
   }
 
@@ -305,26 +285,15 @@ const App: React.FC = () => {
                 <NavItem icon={<FileSpreadsheet size={20} />} label="Relatórios" active={activeView === 'reports'} color={systemSettings.primaryColor} onClick={() => setActiveView('reports')} />
               </>
             )}
-
             {canSee(['ADMIN', 'PROTOCOLO', 'OFICINA']) && (
-              <NavItem 
-                icon={<ClipboardCheck size={20} />} 
-                label="Protocolo" 
-                active={activeView === 'protocol'} 
-                color={systemSettings.primaryColor} 
-                badge={protocolPendingCount > 0 ? protocolPendingCount : undefined}
-                onClick={() => setActiveView('protocol')} 
-              />
+              <NavItem icon={<ClipboardCheck size={20} />} label="Protocolo" active={activeView === 'protocol'} color={systemSettings.primaryColor} badge={protocolPendingCount > 0 ? protocolPendingCount : undefined} onClick={() => setActiveView('protocol')} />
             )}
-
             {canSee(['ADMIN', 'OFICINA']) && (
               <NavItem icon={<Wrench size={20} />} label="Serviços Oficina" active={activeView === 'oficina_cadastro'} color={systemSettings.primaryColor} onClick={() => setActiveView('oficina_cadastro')} />
             )}
-
             {canSee(['ADMIN', 'TV']) && (
               <NavItem icon={<Tv size={20} />} label="Painel Smart TV" active={activeView === 'tv_view'} color={systemSettings.primaryColor} onClick={() => setActiveView('tv_view')} />
             )}
-
             {canSee(['ADMIN']) && (
               <>
                 <NavItem icon={<Settings size={20} />} label="Fornecedores" active={activeView === 'settings'} color={systemSettings.primaryColor} onClick={() => setActiveView('settings')} />
@@ -359,8 +328,8 @@ const App: React.FC = () => {
         </header>
 
         <div className="p-4 md:p-8 w-full">
-          {activeView === 'dashboard' && <><QuoteForm onSave={() => fetchData()} suppliers={suppliers} /><QuoteList quotes={quotes.slice(0, 5)} onDelete={() => {}} /></>}
-          {activeView === 'history' && <HistoryView quotes={quotes} onDelete={() => {}} onUpdateQuote={() => {}} />}
+          {activeView === 'dashboard' && <><QuoteForm onSave={handleSaveQuotes} suppliers={suppliers} /><QuoteList quotes={quotes.slice(0, 5)} onDelete={() => {}} /></>}
+          {activeView === 'history' && <HistoryView quotes={quotes} onDelete={() => {}} onUpdateQuote={() => fetchData()} />}
           {activeView === 'reports' && (
             <ReportsView 
               records={reportRecords} 
