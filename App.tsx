@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Quote, QuoteType, Supplier, ReportRecord, ReportListItem, SystemSettings, UserRole } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { Auth } from './components/Auth';
 import QuoteForm from './components/QuoteForm';
 import QuoteList from './components/QuoteList';
-import SettingsView from './components/SettingsView';
 import HistoryView from './components/HistoryView';
 import ReportsView from './components/ReportsView';
 import SystemSettingsView from './components/SystemSettingsView';
 import ProtocolView from './components/ProtocolView';
 import { 
-  Layout, Settings, Menu, X, LogOut, Loader2, AlertTriangle, 
-  ArrowRight, FileSpreadsheet, Monitor, ClipboardCheck, History, 
+  Layout, Settings, Menu, LogOut, Loader2, 
+  FileSpreadsheet, Monitor, ClipboardCheck, History, 
   Wrench, Tv, Notebook
 } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
@@ -21,7 +21,7 @@ const toSnakeCase = (obj: any) => {
   for (const key in obj) {
     if (key === 'createdAt') snake['created_at'] = obj[key];
     else if (key === 'userId') snake['user_id'] = obj[key];
-    else snake[key] = obj[key]; // Preserva snake_case dos dados que já vem padronizados do front
+    else snake[key] = obj[key];
   }
   return snake;
 };
@@ -31,7 +31,7 @@ const toCamelCase = (obj: any): any => {
   for (const key in obj) {
     if (key === 'created_at') camel['createdAt'] = obj[key];
     else if (key === 'user_id') camel['userId'] = obj[key];
-    else camel[key] = obj[key]; // Preserva snake_case nos dados, o front os consome assim agora para maior estabilidade
+    else camel[key] = obj[key];
   }
   return camel;
 };
@@ -136,7 +136,6 @@ const App: React.FC = () => {
     if (isDemoMode) {
       const updated = [...quotes, ...quotesWithUser];
       setQuotes(updated);
-      localStorage.setItem('demo_quotes_v2', JSON.stringify(updated));
       return;
     }
 
@@ -159,30 +158,23 @@ const App: React.FC = () => {
     };
 
     if (isDemoMode) {
-      const updated = [...reportRecords, recordWithMeta as any];
-      setReportRecords(updated);
-      localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
+      setReportRecords([...reportRecords, recordWithMeta as any]);
       return;
     }
 
     try {
       const { error } = await supabase.from('report_records').insert(toSnakeCase(recordWithMeta));
-      if (error) {
-        console.error("DB Error Details:", error);
-        throw error;
-      }
+      if (error) throw error;
       fetchData();
     } catch (err: any) {
       console.error("Save Record Error:", err);
-      alert(`Erro ao salvar no servidor: ${err.message}. Verifique se todas as colunas existem na tabela report_records.`);
+      alert(`Erro ao salvar no servidor: ${err.message}`);
     }
   };
 
   const handleUpdateReportRecord = async (id: string, updatedFields: Partial<ReportRecord>) => {
     if (isDemoMode) {
-      const updated = reportRecords.map(r => r.id === id ? { ...r, ...updatedFields } : r);
-      setReportRecords(updated);
-      localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
+      setReportRecords(reportRecords.map(r => r.id === id ? { ...r, ...updatedFields } : r));
       return;
     }
     try {
@@ -198,9 +190,7 @@ const App: React.FC = () => {
   const handleDeleteReportRecord = async (id: string) => {
     if (!confirm("Excluir este lançamento permanentemente?")) return;
     if (isDemoMode) {
-      const updated = reportRecords.filter(r => r.id !== id);
-      setReportRecords(updated);
-      localStorage.setItem('demo_reports_v2', JSON.stringify(updated));
+      setReportRecords(reportRecords.filter(r => r.id !== id));
       return;
     }
     try {
@@ -215,7 +205,6 @@ const App: React.FC = () => {
   const handleUpdateListItems = async (items: ReportListItem[]) => {
     if (isDemoMode) {
       setReportListItems(items);
-      localStorage.setItem('demo_lists_v2', JSON.stringify(items));
       return true;
     }
     try {
@@ -232,7 +221,6 @@ const App: React.FC = () => {
 
   const handleUpdateSystemSettings = async (newSettings: SystemSettings) => {
     setSystemSettings(newSettings);
-    localStorage.setItem('system_brand_v1', JSON.stringify(newSettings));
     if (isSupabaseConfigured && session?.user && !isDemoMode) {
       try {
         const { data: existing } = await supabase.from('system_settings').select('id').limit(1).maybeSingle();
@@ -293,15 +281,14 @@ const App: React.FC = () => {
             )}
             {canSee(['ADMIN']) && (
               <>
-                <NavItem icon={<Settings size={20} />} label="Fornecedores" active={activeView === 'settings'} color={systemSettings.primaryColor} onClick={() => setActiveView('settings')} />
-                <NavItem icon={<Monitor size={20} />} label="Sistema / Acessos" active={activeView === 'system'} color={systemSettings.primaryColor} onClick={() => setActiveView('system')} />
+                <NavItem icon={<Settings size={20} />} label="Sistema / Acessos" active={activeView === 'system'} color={systemSettings.primaryColor} onClick={() => setActiveView('system')} />
               </>
             )}
           </nav>
           <div className="mt-auto space-y-4">
             <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
               <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Perfil: {currentUserRole}</p>
-              <p className="text-[10px] font-bold text-slate-300 truncate">{isDemoMode ? 'MODO TESTE' : session?.user.email}</p>
+              <p className="text-[10px] font-bold text-slate-300 truncate">{isDemoMode ? 'MODO TESTE' : session?.user?.email}</p>
             </div>
             <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-3 text-rose-400 font-black uppercase text-[10px] tracking-widest hover:bg-rose-500/10 rounded-xl transition-all"><LogOut size={16} /> Sair</button>
           </div>
@@ -313,18 +300,14 @@ const App: React.FC = () => {
           <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-slate-600"><Menu size={24} /></button>
           <div className="flex-1"></div>
           <div className="flex items-center gap-3">
-             <div className="text-right hidden sm:block">
-                <p className="text-[10px] font-black text-slate-900 uppercase tracking-tighter">{systemSettings.name}</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{currentUserRole}</p>
-             </div>
              <div className="h-10 w-10 rounded-xl bg-slate-900 flex items-center justify-center text-xs font-black text-white shadow-xl">
                {currentUserRole.charAt(0)}
              </div>
           </div>
         </header>
         <div className="p-4 md:p-8 w-full">
-          {activeView === 'dashboard' && <><QuoteForm onSave={handleSaveQuotes} suppliers={suppliers} /><QuoteList quotes={quotes.slice(0, 5)} onDelete={() => {}} /></>}
-          {activeView === 'history' && <HistoryView quotes={quotes} onDelete={() => {}} onUpdateQuote={() => fetchData()} />}
+          {activeView === 'dashboard' && <><QuoteForm onSave={handleSaveQuotes} suppliers={suppliers} /><QuoteList quotes={quotes.slice(0, 5)} onDelete={() => fetchData()} /></>}
+          {activeView === 'history' && <HistoryView quotes={quotes} onDelete={() => fetchData()} onUpdateQuote={() => fetchData()} />}
           {activeView === 'reports' && (
             <ReportsView 
               records={reportRecords} 
@@ -337,10 +320,11 @@ const App: React.FC = () => {
           )}
           {activeView === 'protocol' && <ProtocolView records={reportRecords} onConfirm={(id) => handleUpdateReportRecord(id, { entregue_relatorio: 'RECEBIDO - PROTOCOLADO' })} onUpdateRecord={handleUpdateReportRecord} />}
           {activeView === 'system' && <SystemSettingsView settings={systemSettings} onSave={handleUpdateSystemSettings} />}
-          {activeView === 'oficina_cadastro' && <PlaceholderView title="Cadastro de Serviços Oficina" icon={<Wrench size={48}/>} subtitle="Em breve: Gestão completa de ordens de serviço interna." />}
-          {activeView === 'tv_view' && <PlaceholderView title="Painel Smart TV" icon={<Tv size={48}/>} subtitle="Em breve: Tela de acompanhamento em tempo real para clientes." />}
+          {activeView === 'oficina_cadastro' && <PlaceholderView title="Cadastro de Serviços Oficina" icon={<Wrench size={48}/>} subtitle="Módulo em breve." />}
+          {activeView === 'tv_view' && <PlaceholderView title="Painel Smart TV" icon={<Tv size={48}/>} subtitle="Painel de acompanhamento." />}
         </div>
       </main>
+      {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/50 z-30 lg:hidden"></div>}
     </div>
   );
 };
@@ -353,11 +337,10 @@ const NavItem = ({ icon, label, active, onClick, color, badge }: any) => (
 );
 
 const PlaceholderView = ({ title, icon, subtitle }: any) => (
-  <div className="py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200 shadow-sm animate-in zoom-in duration-500">
+  <div className="py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200 shadow-sm">
     <div className="text-slate-200 mb-6 flex justify-center">{icon}</div>
     <h2 className="text-3xl font-black text-slate-900 uppercase italic tracking-tighter">{title}</h2>
     <p className="text-slate-400 font-bold uppercase text-xs tracking-widest mt-2">{subtitle}</p>
-    <div className="mt-10 inline-flex items-center gap-2 px-6 py-3 bg-indigo-50 text-indigo-600 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em]">Módulo em Desenvolvimento</div>
   </div>
 );
 
