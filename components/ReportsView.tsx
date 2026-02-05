@@ -56,27 +56,26 @@ const ReportsView: React.FC<ReportsViewProps> = ({
   }, [isConfigModalOpen, listItems]);
 
   const [formData, setFormData] = useState({
-    dataRecebido: new Date().toISOString().split('T')[0],
+    data_recebido: new Date().toISOString().split('T')[0],
     prefixo: '',
     secretaria: '',
     descricao: '',
-    numPedidoOficina: '',
-    oficinaTipo: 'TERCERIZADA' as 'PROPRIA' | 'TERCERIZADA',
-    dataLancamentoVolus: '',
-    numOrcVolusPecas: '',
-    numOrcVolusServ: '',
-    dataAprovacaoVolus: '',
-    numOrcAprovado: '',
-    valorTotal: '',
-    notaFiscal: '',
+    num_pedido_oficina: '',
+    oficina_tipo: 'TERCERIZADA' as 'PROPRIA' | 'TERCERIZADA',
+    data_lancamento: '',
+    num_orc_pecas: '',
+    num_orc_serv: '',
+    data_aprovacao: '',
+    num_orc_aprovado: '',
+    valor_total: '',
+    nota_fiscal: '',
     fornecedor: '',
     responsavel: '',
     status: '',
-    entregueRelatorio: '',
+    entregue_relatorio: '',
     observacao: ''
   });
 
-  // Métricas do Dashboard
   const stats = useMemo(() => {
     const parseCurrency = (val: string) => {
       if (!val) return 0;
@@ -84,7 +83,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
     };
 
     return {
-      totalValor: records.reduce((acc, r) => acc + parseCurrency(r.valorTotal), 0),
+      totalValor: records.reduce((acc, r) => acc + parseCurrency(r.valor_total), 0),
       aguardandoOrc: records.filter(r => r.status?.toUpperCase().includes('AGUARDANDO ORÇAMENTO') || r.status?.toUpperCase().includes('ORÇAMENTO')).length,
       aprovados: records.filter(r => r.status?.toUpperCase() === 'APROVADO' || r.status?.toUpperCase() === 'AUTORIZADO').length,
       aguardandoProtocolo: records.filter(r => r.status?.toUpperCase().includes('PROTOCOLO') || r.status?.toUpperCase().includes('AGUARDANDO PROTOCOLO')).length,
@@ -94,23 +93,23 @@ const ReportsView: React.FC<ReportsViewProps> = ({
 
   const resetForm = () => {
     setFormData({
-      dataRecebido: new Date().toISOString().split('T')[0],
+      data_recebido: new Date().toISOString().split('T')[0],
       prefixo: '',
       secretaria: '',
       descricao: '',
-      numPedidoOficina: '',
-      oficinaTipo: 'TERCERIZADA',
-      dataLancamentoVolus: '',
-      numOrcVolusPecas: '',
-      numOrcVolusServ: '',
-      dataAprovacaoVolus: '',
-      numOrcAprovado: '',
-      valorTotal: '',
-      notaFiscal: '',
+      num_pedido_oficina: '',
+      oficina_tipo: 'TERCERIZADA',
+      data_lancamento: '',
+      num_orc_pecas: '',
+      num_orc_serv: '',
+      data_aprovacao: '',
+      num_orc_aprovado: '',
+      valor_total: '',
+      nota_fiscal: '',
       fornecedor: '',
       responsavel: '',
       status: '',
-      entregueRelatorio: '',
+      entregue_relatorio: '',
       observacao: ''
     });
     setEditingRecordId(null);
@@ -130,23 +129,23 @@ const ReportsView: React.FC<ReportsViewProps> = ({
   const handleEditClick = (record: ReportRecord) => {
     setEditingRecordId(record.id);
     setFormData({
-      dataRecebido: record.dataRecebido || '',
+      data_recebido: record.data_recebido || '',
       prefixo: record.prefixo || '',
       secretaria: record.secretaria || '',
       descricao: record.descricao || '',
-      numPedidoOficina: record.numPedidoOficina || '',
-      oficinaTipo: record.oficinaTipo || 'TERCERIZADA',
-      dataLancamentoVolus: record.dataLancamentoVolus || '',
-      numOrcVolusPecas: record.numOrcVolusPecas || '',
-      numOrcVolusServ: record.numOrcVolusServ || '',
-      dataAprovacaoVolus: record.dataAprovacaoVolus || '',
-      numOrcAprovado: record.numOrcAprovado || '',
-      valorTotal: record.valorTotal || '',
-      notaFiscal: record.notaFiscal || '',
+      num_pedido_oficina: record.num_pedido_oficina || '',
+      oficina_tipo: record.oficina_tipo || 'TERCERIZADA',
+      data_lancamento: record.data_lancamento || '',
+      num_orc_pecas: record.num_orc_pecas || '',
+      num_orc_serv: record.num_orc_serv || '',
+      data_aprovacao: record.data_aprovacao || '',
+      num_orc_aprovado: record.num_orc_aprovado || '',
+      valor_total: record.valor_total || '',
+      nota_fiscal: record.nota_fiscal || '',
       fornecedor: record.fornecedor || '',
       responsavel: record.responsavel || '',
       status: record.status || '',
-      entregueRelatorio: record.entregueRelatorio || '',
+      entregue_relatorio: record.entregue_relatorio || '',
       observacao: record.observacao || ''
     });
     setIsModalOpen(true);
@@ -162,22 +161,22 @@ const ReportsView: React.FC<ReportsViewProps> = ({
       (r.fornecedor?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (r.prefixo?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (r.secretaria?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-      (r.numOrcAprovado?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+      (r.num_orc_aprovado?.toLowerCase() || '').includes(searchTerm.toLowerCase())
     ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [records, searchTerm]);
 
   const exportToCSV = () => {
     const headers = [
       'Data Recebido', 'Prefixo', 'Secretaria', 'Descrição', 'Nº Pedido Oficina', 
-      'Oficina Própria/Terceirizada', 'Data Lançamento Volus', 'Nº Orç Volus Peças', 'Nº Orç Volus Serv', 
+      'Oficina Própria/Terceirizada', 'Data Lançamento Volus', 'Nº Orç Peças', 'Nº Orç Serv', 
       'Data Aprovação Volus', 'Nº Orç Aprovado', 'Valor Total', 'Nota Fiscal', 
       'Fornecedor', 'Responsável Lançamento', 'Status', 'Entregue Relatório', 'Observação'
     ];
     const rows = filteredRecords.map(r => [
-      r.dataRecebido, r.prefixo, r.secretaria, r.descricao.replace(/;/g, ','), r.numPedidoOficina,
-      r.oficinaTipo, r.dataLancamentoVolus, r.numOrcVolusPecas, r.numOrcVolusServ,
-      r.dataAprovacaoVolus, r.numOrcAprovado, r.valorTotal, r.notaFiscal,
-      r.fornecedor, r.responsavel, r.status, r.entregueRelatorio, r.observacao.replace(/;/g, ',')
+      r.data_recebido, r.prefixo, r.secretaria, r.descricao.replace(/;/g, ','), r.num_pedido_oficina,
+      r.oficina_tipo, r.data_lancamento, r.num_orc_pecas, r.num_orc_serv,
+      r.data_aprovacao, r.num_orc_aprovado, r.valor_total, r.nota_fiscal,
+      r.fornecedor, r.responsavel, r.status, r.entregue_relatorio, r.observacao.replace(/;/g, ',')
     ]);
 
     const csvContent = [headers, ...rows].map(e => e.join(";")).join("\n");
@@ -221,31 +220,20 @@ const ReportsView: React.FC<ReportsViewProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 w-full overflow-x-hidden pb-10">
-      {/* UI idêntica ao original */}
       <div className="bg-slate-900 p-6 md:p-10 rounded-[2.5rem] text-white shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6 mx-2">
         <div>
           <h2 className="text-3xl font-black tracking-tighter uppercase italic">Relatório de Compras</h2>
           <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] mt-1">Controle de Peças e Serviços Independentes</p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <button 
-            onClick={() => setIsConfigModalOpen(true)}
-            className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all border border-white/10 flex items-center gap-2"
-            title="Configurar Listas"
-          >
+          <button onClick={() => setIsConfigModalOpen(true)} className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all border border-white/10 flex items-center gap-2">
             <Settings size={24} />
             <span className="hidden md:inline text-[10px] font-black uppercase tracking-widest">Config</span>
           </button>
-          <button 
-            onClick={exportToCSV}
-            className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all border border-white/10"
-          >
+          <button onClick={exportToCSV} className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all border border-white/10">
             <Download size={16} /> Exportar CSV
           </button>
-          <button 
-            onClick={handleNewRecordClick}
-            className="px-6 py-4 bg-indigo-500 hover:bg-indigo-400 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-xl shadow-indigo-500/20"
-          >
+          <button onClick={handleNewRecordClick} className="px-6 py-4 bg-indigo-500 hover:bg-indigo-400 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-xl shadow-indigo-500/20">
             <Plus size={18} /> Novo Lançamento
           </button>
         </div>
@@ -262,13 +250,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
       <div className="mx-2 bg-white p-4 rounded-2xl border border-slate-200 flex flex-col md:flex-row items-center gap-4">
         <div className="relative flex-1 w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Filtrar planilha..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+          <input type="text" placeholder="Filtrar planilha..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">
           {filteredRecords.length} REGISTROS ENCONTRADOS
@@ -310,23 +292,23 @@ const ReportsView: React.FC<ReportsViewProps> = ({
                       <button onClick={() => onDeleteRecord(r.id)} className="text-slate-300 hover:text-rose-500 transition-colors" title="Excluir"><Trash2 size={16} /></button>
                     </div>
                   </td>
-                  <td className="px-4 py-4 text-[11px] font-bold text-slate-500 border-r border-slate-100">{r.dataRecebido}</td>
+                  <td className="px-4 py-4 text-[11px] font-bold text-slate-500 border-r border-slate-100">{r.data_recebido}</td>
                   <td className="px-4 py-4 text-[11px] font-black text-indigo-600 border-r border-slate-100 uppercase">{r.prefixo}</td>
                   <td className="px-4 py-4 text-[11px] font-bold text-slate-700 border-r border-slate-100 uppercase">{r.secretaria}</td>
                   <td className="px-4 py-4 text-[11px] font-medium text-slate-500 border-r border-slate-100 max-w-xs truncate uppercase">{r.descricao}</td>
-                  <td className="px-4 py-4 text-[11px] font-bold text-slate-900 border-r border-slate-100 text-center">{r.numPedidoOficina}</td>
+                  <td className="px-4 py-4 text-[11px] font-bold text-slate-900 border-r border-slate-100 text-center">{r.num_pedido_oficina}</td>
                   <td className="px-4 py-4 border-r border-slate-100 text-center">
-                    <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${r.oficinaTipo === 'PROPRIA' ? 'bg-slate-100 text-slate-500' : 'bg-amber-100 text-amber-700'}`}>
-                      {r.oficinaTipo}
+                    <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${r.oficina_tipo === 'PROPRIA' ? 'bg-slate-100 text-slate-500' : 'bg-amber-100 text-amber-700'}`}>
+                      {r.oficina_tipo}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-[11px] font-bold text-slate-400 border-r border-slate-100 text-center">{r.dataLancamentoVolus || '---'}</td>
-                  <td className="px-4 py-4 text-[11px] font-bold text-slate-700 border-r border-slate-100 text-center">{r.numOrcVolusPecas || '---'}</td>
-                  <td className="px-4 py-4 text-[11px] font-bold text-slate-700 border-r border-slate-100 text-center">{r.numOrcVolusServ || '---'}</td>
-                  <td className="px-4 py-4 text-[11px] font-bold text-slate-400 border-r border-slate-100 text-center">{r.dataAprovacaoVolus || '---'}</td>
-                  <td className="px-4 py-4 text-[11px] font-black text-emerald-600 border-r border-slate-100 text-center uppercase">{r.numOrcAprovado || '---'}</td>
-                  <td className="px-4 py-4 text-[11px] font-black text-slate-900 border-r border-slate-100 text-center">R$ {r.valorTotal || '0,00'}</td>
-                  <td className="px-4 py-4 text-[11px] font-bold text-slate-700 border-r border-slate-100 text-center uppercase">{r.notaFiscal || '---'}</td>
+                  <td className="px-4 py-4 text-[11px] font-bold text-slate-400 border-r border-slate-100 text-center">{r.data_lancamento || '---'}</td>
+                  <td className="px-4 py-4 text-[11px] font-bold text-slate-700 border-r border-slate-100 text-center">{r.num_orc_pecas || '---'}</td>
+                  <td className="px-4 py-4 text-[11px] font-bold text-slate-700 border-r border-slate-100 text-center">{r.num_orc_serv || '---'}</td>
+                  <td className="px-4 py-4 text-[11px] font-bold text-slate-400 border-r border-slate-100 text-center">{r.data_aprovacao || '---'}</td>
+                  <td className="px-4 py-4 text-[11px] font-black text-emerald-600 border-r border-slate-100 text-center uppercase">{r.num_orc_aprovado || '---'}</td>
+                  <td className="px-4 py-4 text-[11px] font-black text-slate-900 border-r border-slate-100 text-center">R$ {r.valor_total || '0,00'}</td>
+                  <td className="px-4 py-4 text-[11px] font-bold text-slate-700 border-r border-slate-100 text-center uppercase">{r.nota_fiscal || '---'}</td>
                   <td className="px-4 py-4 text-[11px] font-black text-slate-900 border-r border-slate-100 uppercase">{r.fornecedor}</td>
                   <td className="px-4 py-4 text-[11px] font-bold text-slate-500 border-r border-slate-100 uppercase">{r.responsavel}</td>
                   <td className="px-4 py-4 border-r border-slate-100 text-center">
@@ -334,7 +316,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
                       {r.status}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-[11px] font-bold border-r border-slate-100 text-center uppercase">{r.entregueRelatorio}</td>
+                  <td className="px-4 py-4 text-[11px] font-bold border-r border-slate-100 text-center uppercase">{r.entregue_relatorio}</td>
                   <td className="px-4 py-4 text-[11px] font-medium text-slate-400 uppercase max-w-xs truncate">{r.observacao}</td>
                 </tr>
               ))}
@@ -343,7 +325,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({
         </div>
       </div>
 
-      {/* Modais omitidos para brevidade, mantidos iguais ao arquivo original */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-5xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -353,7 +334,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
             </div>
             <form onSubmit={handleSubmit} className="p-8 md:p-10 overflow-y-auto space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Field label="Data Recebido" type="date" value={formData.dataRecebido} onChange={v => setFormData({...formData, dataRecebido: v})} />
+                <Field label="Data Recebido" type="date" value={formData.data_recebido} onChange={v => setFormData({...formData, data_recebido: v})} />
                 <Field label="Prefixo" value={formData.prefixo} onChange={v => setFormData({...formData, prefixo: v})} />
                 <Field label="Secretaria" type="select" options={getOptionsByCategory('secretaria')} value={formData.secretaria} onChange={v => setFormData({...formData, secretaria: v})} />
               </div>
@@ -362,25 +343,25 @@ const ReportsView: React.FC<ReportsViewProps> = ({
                 <textarea rows={2} className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs uppercase" value={formData.descricao} onChange={e => setFormData({...formData, descricao: e.target.value})} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Field label="Pedido Oficina" value={formData.numPedidoOficina} onChange={v => setFormData({...formData, numPedidoOficina: v})} />
+                <Field label="Pedido Oficina" value={formData.num_pedido_oficina} onChange={v => setFormData({...formData, num_pedido_oficina: v})} />
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tipo</label>
-                  <select className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs" value={formData.oficinaTipo} onChange={e => setFormData({...formData, oficinaTipo: e.target.value as any})}>
+                  <select className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs" value={formData.oficina_tipo} onChange={e => setFormData({...formData, oficina_tipo: e.target.value as any})}>
                     <option value="TERCERIZADA">TERCEIRIZADA</option>
                     <option value="PROPRIA">PRÓPRIA</option>
                   </select>
                 </div>
-                <Field label="Lanç. Volus" type="date" value={formData.dataLancamentoVolus} onChange={v => setFormData({...formData, dataLancamentoVolus: v})} />
+                <Field label="Lanç. Volus" type="date" value={formData.data_lancamento} onChange={v => setFormData({...formData, data_lancamento: v})} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-indigo-50/50 rounded-3xl">
-                <Field label="Agrup. Peças" value={formData.numOrcVolusPecas} onChange={v => setFormData({...formData, numOrcVolusPecas: v})} />
-                <Field label="Agrup. Serv" value={formData.numOrcVolusServ} onChange={v => setFormData({...formData, numOrcVolusServ: v})} />
-                <Field label="Aprov. Volus" type="date" value={formData.dataAprovacaoVolus} onChange={v => setFormData({...formData, dataAprovacaoVolus: v})} />
+                <Field label="Agrup. Peças" value={formData.num_orc_pecas} onChange={v => setFormData({...formData, num_orc_pecas: v})} />
+                <Field label="Agrup. Serv" value={formData.num_orc_serv} onChange={v => setFormData({...formData, num_orc_serv: v})} />
+                <Field label="Aprov. Volus" type="date" value={formData.data_aprovacao} onChange={v => setFormData({...formData, data_aprovacao: v})} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Field label="Nº Aprovado" value={formData.numOrcAprovado} onChange={v => setFormData({...formData, numOrcAprovado: v})} />
-                <Field label="Valor Total" value={formData.valorTotal} onChange={v => setFormData({...formData, valorTotal: v})} />
-                <Field label="Nota Fiscal" value={formData.notaFiscal} onChange={v => setFormData({...formData, notaFiscal: v})} />
+                <Field label="Nº Aprovado" value={formData.num_orc_aprovado} onChange={v => setFormData({...formData, num_orc_aprovado: v})} />
+                <Field label="Valor Total" value={formData.valor_total} onChange={v => setFormData({...formData, valor_total: v})} />
+                <Field label="Nota Fiscal" value={formData.nota_fiscal} onChange={v => setFormData({...formData, nota_fiscal: v})} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Field label="Fornecedor" type="select" options={getOptionsByCategory('fornecedor')} value={formData.fornecedor} onChange={v => setFormData({...formData, fornecedor: v})} />
@@ -388,7 +369,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Field label="Status" type="select" options={getOptionsByCategory('status')} value={formData.status} onChange={v => setFormData({...formData, status: v})} />
-                <Field label="Entregue" type="select" options={getOptionsByCategory('entrega')} value={formData.entregueRelatorio} onChange={v => setFormData({...formData, entregueRelatorio: v})} />
+                <Field label="Entregue" type="select" options={getOptionsByCategory('entrega')} value={formData.entregue_relatorio} onChange={v => setFormData({...formData, entregue_relatorio: v})} />
               </div>
               <button type="submit" className="w-full bg-slate-900 text-white font-black py-6 rounded-[2rem] uppercase text-xs tracking-widest shadow-2xl hover:bg-black transition-all">
                 {editingRecordId ? 'Salvar Alterações' : 'Salvar Novo Registro'}
