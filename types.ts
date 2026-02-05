@@ -51,10 +51,10 @@ export interface ReportRecord {
   descricao: string;
   num_pedido_oficina: string;
   oficina_tipo: 'PROPRIA' | 'TERCERIZADA';
-  data_lancamento: string;
-  num_orc_pecas: string;
-  num_orc_serv: string;
-  data_aprovacao: string;
+  data_lancamento_volus: string;
+  num_orc_volus_pecas: string;
+  num_orc_volus_serv: string;
+  data_aprovacao_volus: string;
   num_orc_aprovado: string;
   valor_total: string;
   nota_fiscal: string;
