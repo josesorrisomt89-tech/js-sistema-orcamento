@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Quote, QuoteType, Supplier, ReportRecord, ReportListItem, SystemSettings, UserRole } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
@@ -168,7 +167,7 @@ const App: React.FC = () => {
       fetchData();
     } catch (err: any) {
       console.error("Save Record Error:", err);
-      alert(`Erro ao salvar no servidor: ${err.message}`);
+      alert(`Erro ao salvar no servidor: ${err.message}. Verifique as colunas no banco de dados.`);
     }
   };
 
