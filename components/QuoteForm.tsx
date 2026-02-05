@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Send, Trash2, Loader2, Plus, Users, User, Image as ImageIcon, CheckCircle, FileText, Paperclip, X, Search } from 'lucide-react';
 import { QuoteType, Quote, BatchItem, Supplier, AttachedFile } from '../types';
@@ -73,10 +72,8 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
     setBatchItems(batchItems.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
 
-  const handleSelectSupplierFromList = (supplier: Supplier, batchId?: string) => {
-    if (batchId) {
-      setBatchItems(batchItems.map(item => item.id === batchId ? { ...item, supplierName: supplier.name, supplierPhone: supplier.phone } : item));
-    } else if (isMultiMode && activeBatchIdForSearch) {
+  const handleSelectSupplierFromList = (supplier: Supplier) => {
+    if (isMultiMode && activeBatchIdForSearch) {
       setBatchItems(batchItems.map(item => item.id === activeBatchIdForSearch ? { ...item, supplierName: supplier.name, supplierPhone: supplier.phone } : item));
     } else {
       setSingleSupplier(prev => ({ ...prev, name: supplier.name, phone: supplier.phone }));
@@ -124,7 +121,6 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
       }
     ];
     
-    // Validação
     if (itemsToProcess.some(i => !i.supplierName || !i.supplierPhone) || !observations) {
       alert("⚠️ Preencha o Fornecedor e as Observações.");
       return;
@@ -132,6 +128,8 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
 
     setIsProcessing(true);
     const generatedQuotes: Quote[] = [];
+    const timestamp = new Date().toISOString();
+
     try {
       for (const item of itemsToProcess) {
         const polishedMessage = await formatQuoteMessage(type, observations, item.supplierName, item.prefix, item.quoteNumberParts, item.quoteNumberServices);
@@ -146,27 +144,19 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
           photo, 
           files: attachedFiles, 
           observations: polishedMessage, 
-          // Fix: Date.now() returns a number, but the Quote interface expects a string for createdAt.
-          createdAt: new Date().toISOString()
+          createdAt: timestamp
         });
       }
       
-      // SALVA NO HISTÓRICO - Garante que o App receba os dados
       onSave(generatedQuotes);
       
-      // WhatsApp Send Logic
       if (generatedQuotes.length > 0) {
-        if (isMultiMode && itemsToProcess.length > 1) {
-          alert(`✅ ${itemsToProcess.length} Orçamentos salvos no histórico!\n\nO navegador permite abrir apenas uma janela por vez. O primeiro WhatsApp será aberto agora, envie os outros através da aba "Histórico".`);
-        }
-        
         const q = generatedQuotes[0];
         const cleanPhone = q.supplierPhone.replace(/\D/g, '');
         const encodedText = encodeURIComponent(q.observations);
         window.open(`https://wa.me/55${cleanPhone}?text=${encodedText}`, '_blank');
       }
 
-      // Reset total
       setSingleSupplier({ name: '', phone: '', prefix: '', quoteNumberParts: '', quoteNumberServices: '' });
       setBatchItems([{ id: crypto.randomUUID(), supplierName: '', supplierPhone: '', prefix: '', quoteNumberParts: '', quoteNumberServices: '' }]);
       setPhoto(null);
@@ -194,7 +184,6 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
           </span>
         </div>
 
-        {/* Seleção de Modo */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Tipo de Orçamento</label>
@@ -212,7 +201,6 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
           </div>
         </div>
 
-        {/* Fornecedores */}
         <div className="space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">SELECIONAR EMPRESA</h3>
@@ -323,7 +311,6 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ onSave, suppliers = [] }) => {
         </button>
       </form>
 
-      {/* MODAL DE BUSCA DE FORNECEDORES */}
       {isSupplierSearchOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
            <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
