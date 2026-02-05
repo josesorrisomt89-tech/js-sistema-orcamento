@@ -44,23 +44,23 @@ export interface BatchItem {
 
 export interface ReportRecord {
   id: string;
-  dataRecebido: string;
+  data_recebido: string;
   prefixo: string;
   secretaria: string;
   descricao: string;
-  numPedidoOficina: string;
-  oficinaTipo: 'PROPRIA' | 'TERCERIZADA';
-  dataLancamentoVolus: string;
-  numOrcVolusPecas: string;
-  numOrcVolusServ: string;
-  dataAprovacaoVolus: string;
-  numOrcAprovado: string;
-  valorTotal: string;
-  notaFiscal: string;
+  num_pedido_oficina: string;
+  oficina_tipo: 'PROPRIA' | 'TERCERIZADA';
+  data_lancamento: string;
+  num_orc_pecas: string;
+  num_orc_serv: string;
+  data_aprovacao: string;
+  num_orc_aprovado: string;
+  valor_total: string;
+  nota_fiscal: string;
   fornecedor: string;
   responsavel: string;
   status: string;
-  entregueRelatorio: string;
+  entregue_relatorio: string;
   observacao: string;
   createdAt: string;
   userId?: string;
