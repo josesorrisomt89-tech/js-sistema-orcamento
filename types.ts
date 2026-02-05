@@ -1,15 +1,6 @@
-
 export enum QuoteType {
   REQUEST = 'PEDIDO DE ORÇAMENTO',
   APPROVAL = 'APROVAÇÃO DE ORÇAMENTO'
-}
-
-export type UserRole = 'ADMIN' | 'PROTOCOLO' | 'OFICINA' | 'TV';
-
-export interface SystemUser {
-  email: string;
-  role: UserRole;
-  addedAt: number;
 }
 
 export interface AttachedFile {
@@ -29,42 +20,31 @@ export interface Quote {
   photo: string | null;
   files?: AttachedFile[];
   observations: string;
-  createdAt: string;
+  createdAt: string; // Alterado para string (ISO)
   sent?: boolean;
-  userId?: string;
-}
-
-export interface BatchItem {
-  id: string;
-  supplierName: string;
-  supplierPhone: string;
-  prefix: string;
-  quoteNumberParts: string;
-  quoteNumberServices: string;
 }
 
 export interface ReportRecord {
   id: string;
-  data_recebido: string;
+  dataRecebido: string;
   prefixo: string;
   secretaria: string;
   descricao: string;
-  num_pedido_oficina: string;
-  oficina_tipo: 'PROPRIA' | 'TERCERIZADA';
-  data_lancamento: string;
-  num_orc_pecas: string;
-  num_orc_serv: string;
-  data_aprovacao: string;
-  num_orc_aprovado: string;
-  valor_total: string;
-  nota_fiscal: string;
+  numPedidoOficina: string;
+  oficinaTipo: 'PROPRIA' | 'TERCERIZADA';
+  dataLancamentoVolus: string;
+  numOrcVolusPecas: string;
+  numOrcVolusServ: string;
+  dataAprovacaoVolus: string;
+  numOrcAprovado: string;
+  valorTotal: string;
+  notaFiscal: string;
   fornecedor: string;
   responsavel: string;
   status: string;
-  entregue_relatorio: string;
+  entregueRelatorio: string;
   observacao: string;
-  createdAt: string;
-  userId?: string;
+  createdAt: string; // Alterado para string (ISO)
 }
 
 export interface ReportListItem {
@@ -73,10 +53,20 @@ export interface ReportListItem {
   value: string;
 }
 
+export interface BatchItem {
+  id: string;
+  supplierName: string;
+  supplierPhone: string;
+  prefix?: string;
+  quoteNumberParts: string;
+  quoteNumberServices: string;
+}
+
 export interface Supplier {
   id: string;
   name: string;
   phone: string;
+  category?: string;
 }
 
 export interface SystemSettings {
@@ -84,5 +74,4 @@ export interface SystemSettings {
   logoUrl: string | null;
   primaryColor: string;
   subtitle: string;
-  users?: SystemUser[]; 
 }
